@@ -181,10 +181,27 @@ export function loadRound() {
     maybeFireAISuper(State.roundIndex);
     setTimeout(() => startTimer({ ...round, time: roundTime }), 600);
   } else {
-    /* Les deux côtés appellent loadRound() au même timestamp absolu.
-       On démarre le timer directement — pas de délai supplémentaire. */
-    const token = State.currentRoundToken;
-    startTimer({ ...round, time: roundTime }, State._onlineRoundStartAt || undefined);
+    /* En online : masquer la formule jusqu'au vrai départ (évite le flash visuel).
+       startAt est protégé : s'il est dans le passé (retard réseau), on utilise now+100ms
+       pour que le timer ne démarre pas à 0 immédiatement. */
+    const safeStart = Math.max(State._onlineRoundStartAt || 0, Date.now() + 50);
+    const msToStart = safeStart - Date.now();
+
+    /* Masquer la formule pendant la phase countdown restante */
+    if (msToStart > 200) {
+      const fd = document.getElementById('formulaDisplay');
+      const fl = document.getElementById('formulaLabel');
+      if (fd) { fd.style.visibility = 'hidden'; }
+      if (fl) { fl.style.visibility = 'hidden'; }
+      setTimeout(() => {
+        const fd2 = document.getElementById('formulaDisplay');
+        const fl2 = document.getElementById('formulaLabel');
+        if (fd2) fd2.style.visibility = '';
+        if (fl2) fl2.style.visibility = '';
+      }, msToStart - 100);
+    }
+
+    startTimer({ ...round, time: roundTime }, safeStart);
     if (State.isHost) _startPeriodicSync(round, roundTime);
   }
 }
@@ -457,7 +474,10 @@ export function tapOrderBtn(idx, val, correct) {
     if (submittedToken !== State.currentRoundToken) return;
     btn.classList.add('correct-order');
     document.querySelectorAll('.order-btn').forEach(b => b.disabled = true);
-    p.answered = true; sfx.correct(); resolveCorrectAnswer(p, State.allRounds[State.roundIndex]);
+    p.answered = true;
+    /* En online : broadcaster la bonne réponse exactement comme submitAnswer */
+    if (State.gameMode === 'online') State.onlineAdapter?.broadcastAnswer(val, Date.now(), true, State.roundIndex);
+    sfx.correct(); resolveCorrectAnswer(p, State.allRounds[State.roundIndex]);
   } else {
     btn.classList.add('wrong-order'); setTimeout(() => btn.classList.remove('wrong-order'), 500);
     p.hp = Math.max(0, p.hp - C.SELF_DAMAGE); updateHP(p); sfx.wrong(); animFighter(p.id, 'hurt'); showHpLossFX(p.id, `−${C.SELF_DAMAGE}`, 'var(--red)');
@@ -904,19 +924,28 @@ function _showReadyOverlay(myName, oppName) {
   const ov = document.createElement('div');
   ov.id = 'readyOverlay';
   ov.style.cssText = `position:fixed;inset:0;z-index:9100;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:16px;
-    background:rgba(0,0,0,0.80);backdrop-filter:blur(6px);`;
+    align-items:center;justify-content:center;gap:12px;padding:24px;box-sizing:border-box;
+    background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);`;
   ov.innerHTML = `
-    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--gold);
-      text-shadow:0 0 20px var(--gold-glow);letter-spacing:1px;">⚔️ ${myName} vs ${oppName}</div>
-    <div id="readyStatus" style="font-size:13px;color:var(--muted);letter-spacing:2px;text-align:center;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;max-width:320px;">
+      <div style="font-family:'Syne',sans-serif;font-size:clamp(18px,5vw,26px);font-weight:800;
+        color:var(--cyan);text-shadow:0 0 16px rgba(0,180,255,.6);
+        text-align:center;word-break:break-word;line-height:1.2;">🥷 ${myName}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:clamp(13px,3.5vw,16px);font-weight:700;
+        color:var(--gold);letter-spacing:4px;opacity:0.8;padding:4px 0;">VS</div>
+      <div style="font-family:'Syne',sans-serif;font-size:clamp(18px,5vw,26px);font-weight:800;
+        color:#ff5555;text-shadow:0 0 16px rgba(255,80,80,.5);
+        text-align:center;word-break:break-word;line-height:1.2;">⚔️ ${oppName}</div>
+    </div>
+    <div id="readyStatus" style="font-size:12px;color:var(--muted);letter-spacing:2px;
+      text-align:center;max-width:280px;line-height:1.5;margin-top:4px;">
       En attente que les deux joueurs soient prêts…
     </div>
     <button id="readyBtn" style="
-      margin-top:8px;padding:18px 40px;border-radius:16px;border:2px solid var(--gold-neon);
+      margin-top:12px;padding:16px 36px;border-radius:16px;border:2px solid var(--gold-neon);
       background:var(--gold-neon);color:#1a1200;font-family:'Syne',sans-serif;
-      font-size:20px;font-weight:800;cursor:pointer;letter-spacing:1px;
-      box-shadow:0 0 32px var(--gold-glow);transition:all .2s;"
+      font-size:clamp(16px,4.5vw,20px);font-weight:800;cursor:pointer;letter-spacing:1px;
+      box-shadow:0 0 32px var(--gold-glow);transition:all .2s;width:min(280px,80vw);"
       onclick="window._onReadyClick()">
       ✋ JE SUIS PRÊT
     </button>`;
@@ -1018,7 +1047,9 @@ function _onlineCountdownThenLoad(startAt, mode) {
       if (mode === 'overlay') document.getElementById('readyOverlay')?.remove();
       const fd = document.getElementById('formulaDisplay');
       if (fd) fd.style.cssText = ''; /* reset inline styles avant loadRound */
-      State._onlineRoundStartAt = startAt; /* t=0 partagé pour les 2 timers */
+      /* Protège startAt : s'il est dans le passé (mobile lent / réseau dégradé),
+         on le cale à now pour que le timer parte de roundTime et non de 0 */
+      State._onlineRoundStartAt = Math.max(startAt, Date.now());
       loadRound();
     }
   };
