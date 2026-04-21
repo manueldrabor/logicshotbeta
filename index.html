@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="description" content="LogicShot — Jeu de calcul mental. Affronte NEXUS, calcule vite, survie !"/>
+<meta name="theme-color" content="#00b4ff"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="LogicShot"/>
+<title>LogicShot vBêta</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+<link rel="apple-touch-icon" href="favicon.svg"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@700;800&family=Share+Tech+Mono&display=block" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@700;800&family=Share+Tech+Mono&display=block" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="logicshot.css">
+</head>
+<body>
+
+<!-- ══ SKIP LINK ACCESSIBILITÉ ══ -->
+<a href="#mainContent" class="skip-link">Aller au contenu principal</a>
+
+<!-- ══ LOADING SCREEN ══ -->
+<div id="loadingScreen" role="status" aria-label="Chargement de LogicShot">
+  <div class="loading-logo">Logic<span>Shot</span></div>
+  <div class="loading-bar-bg"><div class="loading-bar-fill"></div></div>
+  <div class="loading-sub">Chargement…</div>
+</div>
+
+<!-- ══ XP GAIN POP ══ -->
+<div id="xpGainPop" class="hidden" aria-live="polite" aria-atomic="true"></div>
+
+<canvas id="cyberCanvas" aria-hidden="true"></canvas>
+
+<main id="mainContent">
+
+<!-- ══ SPLASH ══ -->
+<div id="screenSplash" class="screen" role="main" aria-label="Menu principal">
+  <!-- Logo SVG -->
+  <div class="splash-logo-wrap" aria-label="LogicShot">
+    <svg class="splash-logo-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect width="64" height="64" rx="14" fill="#ffffff"/>
+      <circle cx="32" cy="32" r="28" fill="none" stroke="#FFD700" stroke-width="1.5" opacity="0.5"/>
+      <circle cx="32" cy="32" r="23" fill="none" stroke="#00B4FF" stroke-width="2.5"/>
+      <circle cx="32" cy="32" r="16" fill="none" stroke="#FFD700" stroke-width="2"/>
+      <circle cx="32" cy="32" r="9"  fill="none" stroke="#00B4FF" stroke-width="1.8"/>
+      <circle cx="32" cy="32" r="4"  fill="#FFD700"/>
+      <circle cx="32" cy="32" r="1.8" fill="#ffffff"/>
+      <line x1="32" y1="3"  x2="32" y2="11" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="32" y1="53" x2="32" y2="61" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="3"  y1="32" x2="11" y2="32" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="53" y1="32" x2="61" y2="32" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="8"  y1="8"  x2="13" y2="13" stroke="#FFD700" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="56" y1="8"  x2="51" y2="13" stroke="#FFD700" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="8"  y1="56" x2="13" y2="51" stroke="#FFD700" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="56" y1="56" x2="51" y2="51" stroke="#FFD700" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="32" y1="14" x2="32" y2="18" stroke="#00B4FF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+      <line x1="32" y1="46" x2="32" y2="50" stroke="#00B4FF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+      <line x1="14" y1="32" x2="18" y2="32" stroke="#00B4FF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+      <line x1="46" y1="32" x2="50" y2="32" stroke="#00B4FF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+    </svg>
+    <div class="splash-wordmark">
+      <span class="logo-gold">Logic</span><span class="logo-shot">Shot</span>
+    </div>
+  </div>
+  <div class="splash-sub" aria-hidden="true">Calcule · Tire · Survie</div>
+  <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:8px;margin-top:-18px;">vBêta</div>
+
+  <!-- XP Bar -->
+  <div class="xp-bar-wrap" role="progressbar" aria-label="Barre d'expérience">
+    <div class="xp-bar-labels">
+      <span id="xpLevelLabel">Nv.1 · Recrue</span>
+      <span id="xpValueLabel">0/500 XP</span>
+    </div>
+    <div class="xp-bar-bg"><div class="xp-bar-fill" id="xpBarFill" style="width:0%"></div></div>
+  </div>
+
+  <div class="splash-modes" role="navigation" aria-label="Modes de jeu" style="margin-top:18px;">
+    <button class="mode-btn mode-featured" style="--mode-color:var(--blue-neon)" onclick="startStoryMode()" aria-label="Mode Histoire, 20 niveaux">
+      <span class="mode-icon" aria-hidden="true">📖</span>
+      <div class="mode-info">
+        <div class="mode-title">MODE HISTOIRE — 20 NIVEAUX</div>
+        <div class="mode-desc">Affronte NEXUS · Débloque des pouvoirs · Gagne des ⭐</div>
+      </div>
+    </button>
+    <button class="mode-btn" style="--mode-color:var(--purple)" onclick="startVsMachine()" aria-label="Mode versus Machine">
+      <span class="mode-icon" aria-hidden="true">🤖</span>
+      <div class="mode-info">
+        <div class="mode-title">vs MACHINE</div>
+        <div class="mode-desc">Choisis la difficulté · Affronte NEXUS</div>
+      </div>
+    </button>
+    <button class="mode-btn" style="--mode-color:var(--blue-neon)" onclick="startOnlineMode()" aria-label="Mode 1 contre 1 en ligne">
+      <span class="mode-icon" aria-hidden="true">⚔️</span>
+      <div class="mode-info">
+        <div class="mode-title">1 vs 1 EN LIGNE</div>
+        <div class="mode-desc">Duel en temps réel · Code de salle · ELO</div>
+      </div>
+    </button>
+    <button class="mode-btn" style="--mode-color:var(--gold-neon);display:none" onclick="showComingSoon('2v2')" aria-label="Mode 2 contre 2, bientôt disponible" aria-hidden="true">
+      <span class="mode-icon" aria-hidden="true">🛡️</span>
+      <div class="mode-info">
+        <div class="mode-title">2 vs 2 <span class="coming-soon" aria-label="Bientôt disponible">SOON</span></div>
+        <div class="mode-desc">Équipes · 4 joueurs</div>
+      </div>
+    </button>
+  </div>
+  <div class="splash-extras">
+    <button class="extra-btn" onclick="showLeaderboard()" aria-label="Voir le classement">🏆 Classement</button>
+    <button class="extra-btn" onclick="showShop()" aria-label="Ouvrir la boutique">🛒 Boutique</button>
+    <button class="extra-btn" onclick="showDonation()" aria-label="Soutenir le jeu">❤️ Soutien</button>
+    <button class="extra-btn" onclick="showTutorial()" aria-label="Voir le tutoriel">❓ Tutoriel</button>
+  </div>
+</div>
+
+<!-- ══ MATCHMAKING ══ -->
+<div id="screenMatchmaking" class="screen hidden" role="main" aria-label="Saisie du pseudo">
+  <div class="mm-box">
+    <div class="mm-title" id="mmTitle">ENTRER DANS L'ARÈNE</div>
+    <div class="mm-inputs" id="mmInputs"></div>
+    <button class="res-btn gold" style="width:100%;margin-top:4px;" onclick="proceedMatchmaking()" aria-label="Continuer vers le combat">⚔️ CONTINUER</button>
+    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:10px;padding:12px;" aria-label="Retour au menu">← Retour au menu</button>
+  </div>
+</div>
+
+<!-- ══ DIFF SELECT ══ -->
+<div id="screenDiffSelect" class="screen hidden" role="main" aria-label="Sélection de la difficulté">
+  <div class="diff-select-box">
+    <div class="diff-select-title">CHOISIR L'IA</div>
+    <div class="diff-select-sub">Vitesse et précision de NEXUS</div>
+    <div class="diff-opt" role="list">
+      <button class="diff-opt-btn d-relax" onclick="selectAIDiff('relax')" aria-label="Difficulté Détente" role="listitem">
+        <span class="diff-opt-icon" aria-hidden="true">😌</span>
+        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--blue-neon)">DÉTENTE</div><div class="diff-opt-desc">Pas de timer · IA très lente · Pour apprendre</div></div>
+      </button>
+      <button class="diff-opt-btn d-easy" onclick="selectAIDiff('easy')" aria-label="Difficulté Facile" role="listitem">
+        <span class="diff-opt-icon" aria-hidden="true">🌱</span>
+        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--green)">FACILE</div><div class="diff-opt-desc">Timer souple · IA lente · Accessible</div></div>
+      </button>
+      <button class="diff-opt-btn d-medium" onclick="selectAIDiff('medium')" aria-label="Difficulté Moyen" role="listitem">
+        <span class="diff-opt-icon" aria-hidden="true">⚡</span>
+        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--gold)">MOYEN</div><div class="diff-opt-desc">Timer normal · IA moyenne · Combat équilibré</div></div>
+      </button>
+      <button class="diff-opt-btn d-hard" onclick="selectAIDiff('hard')" aria-label="Difficulté Difficile" role="listitem">
+        <span class="diff-opt-icon" aria-hidden="true">💀</span>
+        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--red)">DIFFICILE</div><div class="diff-opt-desc">Timer serré · IA rapide · Maîtrise requise</div></div>
+      </button>
+    </div>
+    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:16px;padding:12px;" aria-label="Retour au menu">← Retour au menu</button>
+  </div>
+</div>
+
+<!-- ══ STORY MAP ══ -->
+<div id="screenStory" class="screen hidden" role="main" aria-label="Carte des niveaux">
+  <div class="story-header">
+    <div style="text-align:center;flex:1">
+      <div class="story-title">📖 MODE HISTOIRE</div>
+      <div class="story-progress" id="storyProgress" aria-live="polite">0/20 complétés</div>
+    </div>
+    <div style="text-align:right">
+      <button class="story-reset-btn" onclick="if(confirm('Effacer toute la progression ? Attention celà est définitif')){localStorage.removeItem('ls_beaten');localStorage.removeItem('ls_stars');openStoryMap();}" aria-label="Réinitialiser la progression">↺ Reset</button>
+    </div>
+  </div>
+
+  <!-- Bloc XP progression -->
+  <div id="storyXpBlock" class="story-xp-block" aria-label="Progression XP"></div>
+
+  <div class="zone-legend" style="margin-top:8px;" aria-label="Légende des zones">
+    <div class="zone-tag" style="background:rgba(0,180,255,0.1);border:1px solid rgba(0,180,255,0.25);color:var(--blue-neon);">1–5 DÉTENTE</div>
+    <div class="zone-tag" style="background:rgba(0,168,85,0.1);border:1px solid rgba(0,168,85,0.25);color:var(--green);">6–10 FACILE</div>
+    <div class="zone-tag" style="background:rgba(245,196,0,0.1);border:1px solid rgba(245,196,0,0.25);color:var(--gold);">11–15 MOYEN</div>
+    <div class="zone-tag" style="background:rgba(229,48,48,0.1);border:1px solid rgba(229,48,48,0.25);color:var(--red);">16–20 DIFFICILE</div>
+  </div>
+  <div class="story-grid" id="storyGrid" role="list" aria-label="Niveaux de l'histoire"></div>
+  <div style="padding:16px 16px 0;width:100%;max-width:680px;margin:0 auto;">
+    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;padding:12px;margin: -15px 0px 0px 0px;" aria-label="Retour au menu">← Retour au menu</button>
+  </div>
+</div>
+
+<!-- ══ NARRATIVE ══ -->
+<div id="screenNarrative" class="screen hidden" role="main" aria-label="Narration NEXUS">
+  <div class="narrative-wrap">
+    <div class="narrative-content">
+      <div class="narrative-robot" id="narrativeRobot" aria-hidden="true">🤖</div>
+      <div class="narrative-lvl" id="narrativeLvl"></div>
+      <div class="narrative-bubble" role="article" aria-label="Message de NEXUS">
+        <div class="narrative-machine" aria-hidden="true">— NEXUS —</div>
+        <div class="narrative-text" id="narrativeText"></div>
+      </div>
+    </div>
+    <button class="narrative-continue" onclick="narrativeContinue()" aria-label="Continuer">CONTINUER ▶</button>
+  </div>
+</div>
+
+<!-- ══ OATH ══ -->
+<div id="screenOath" class="screen hidden" role="main" aria-label="Serment du joueur">
+  <div class="oath-box">
+    <div class="oath-title">⚖️ SERMENT</div>
+    <div class="oath-text">Avant chaque combat :<br><br>🚫 Pas de calculatrice<br>🚫 Pas de triche<br>🧠 Joue avec ta tête, pas tes doigts</div>
+    <label class="oath-check"><input type="checkbox" id="oathCb" aria-required="true"><span>J'en fais le serment !</span></label>
+    <button class="res-btn gold" style="width:100%" onclick="confirmOath()" aria-label="Confirmer le serment et aller au combat">⚔️ AU COMBAT !</button>
+    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:10px;padding:12px;" aria-label="Retour au menu">← Retour au menu</button>
+  </div>
+</div>
+
+<!-- ══ BATTLE ══ -->
+<div id="screenBattle" class="screen hidden" role="main" aria-label="Arène de combat">
+  <div class="arena" id="arenaWrap">
+    <div class="fighters" id="fightersRow" aria-label="Combattants"></div>
+    <div class="score-bar" aria-label="Score et streak">
+      <div class="score-display" id="scoreDisplay" aria-live="polite">🏆 0</div>
+      <div class="streak-display" id="streakDisplay" aria-live="polite"></div>
+      <div class="combo-display" id="comboDisplay" aria-live="polite"></div>
+    </div>
+    <div class="round-header">
+      <span id="roundLabel" aria-live="polite">ROUND 1/10</span>
+      <span class="diff-badge diff-easy" id="diffBadge">FACILE</span>
+      <span class="points-info pt-easy" id="ptInfo">💥 -10 HP</span>
+    </div>
+    <div class="feedback-bar" id="feedbackBar" aria-live="assertive" role="alert"></div>
+    <div class="formula-zone" role="region" aria-label="Formule à résoudre">
+      <div class="formula-label" id="formulaLabel">RÉSOUS LA FORMULE</div>
+      <div class="formula-big" id="formulaDisplay" onclick="revealBlind()" role="img" aria-label="Formule mathématique">?</div>
+      <div class="blind-hint" id="blindHint" style="display:none" aria-label="Toucher pour révéler, coûte 3 secondes">👆 Touche pour révéler (−3s)</div>
+      <div class="formula-answer" id="formulaAnswer" aria-live="polite"></div>
+    </div>
+    <div class="timer-zone" role="region" aria-label="Minuteur">
+      <div class="timer-row">
+        <div class="timer-bar-bg" role="progressbar" aria-label="Temps restant" aria-valuemin="0" aria-valuemax="100">
+          <div class="timer-bar t-easy" id="timerBar"></div>
+        </div>
+        <div class="timer-num" id="timerNum" aria-live="off">20</div>
+      </div>
+    </div>
+    <div class="answer-zone" id="answerZone" role="region" aria-label="Zone de réponse"></div>
+    <div id="orderZone"></div>
+    <div id="numpadZone"></div>
+    <div class="supers-zone" id="supersZone" role="toolbar" aria-label="Super pouvoirs"></div>
+    <div class="battle-bottom">
+      <button class="pause-btn" onclick="togglePause()" aria-label="Mettre en pause (coûte 10 HP)">⏸ PAUSE (−10 HP)</button>
+      <button class="quit-btn" onclick="quitBattle()" aria-label="Abandonner le combat">🚪 ABANDONNER</button>
+    </div>
+    <div class="bg-warning-bar" role="note">
+      Arrière-plan pendant un round = −20 HP
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAUSE ══ -->
+<div id="pauseOverlay" class="pause-overlay hidden" role="dialog" aria-modal="true" aria-label="Jeu en pause">
+  <div class="pause-box">
+    <div class="pause-title" aria-hidden="true">⏸</div>
+    <div class="pause-btns">
+      <button class="pause-resume" onclick="togglePause()" aria-label="Reprendre le jeu">▶ REPRENDRE</button>
+      <button class="pause-quit" onclick="quitBattle()" aria-label="Abandonner et quitter">Abandonner</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RESULTS ══ -->
+<div id="screenResults" class="screen hidden" role="main" aria-label="Résultats du combat">
+  <div class="results-box">
+    <div class="res-emoji" id="resEmoji" aria-hidden="true">🏆</div>
+    <div class="res-title" id="resTitle" aria-live="polite">VICTOIRE !</div>
+    <div class="res-subtitle" id="resSub"></div>
+    <div id="resXpBadge"></div>
+    <div class="stars-reward" id="starsReward" aria-label="Étoiles gagnées"></div>
+    <div class="res-score" id="resScore" aria-live="polite"></div>
+    <div id="rewardBox"></div>
+    <div class="res-rows" id="resRows" role="list" aria-label="Classement du combat"></div>
+    <div class="res-btns" id="resBtns" role="group" aria-label="Actions après combat"></div>
+  </div>
+</div>
+
+<!-- ══ TUTORIEL ══ -->
+<div id="screenTutorial" class="hidden" role="dialog" aria-modal="true" aria-label="Tutoriel LogicShot">
+  <div class="tuto-box">
+    <div class="tuto-header">TUTORIEL</div>
+    <div id="tutorialContent"></div>
+    <div class="tuto-btns">
+      <button class="tuto-btn-prev" id="tutoPrevBtn" onclick="tutoPrev()" aria-label="Étape précédente">← Précédent</button>
+      <button class="tuto-btn-next" id="tutoNextBtn" onclick="tutoNext()" aria-label="Étape suivante">Suivant →</button>
+    </div>
+    <button class="tuto-skip" onclick="closeTutorial()" aria-label="Passer le tutoriel">Passer le tutoriel</button>
+  </div>
+</div>
+
+<!-- ══ MODAL ══ -->
+<div id="modalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Fenêtre de dialogue" onclick="closeModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-title" id="modalTitle"></div>
+    <div id="modalContent"></div>
+    <button class="close-btn" onclick="closeModal()" aria-label="Fermer la fenêtre">Fermer</button>
+  </div>
+</div>
+
+<!-- ══ ONLINE MENU ══ -->
+<div id="screenOnlineMenu" class="screen hidden" role="main" aria-label="Mode 1 vs 1 en ligne">
+  <div class="online-box">
+    <div class="online-title">⚔️ 1 vs 1 EN LIGNE</div>
+    <div class="online-sub">Duel mathématique en temps réel</div>
+
+    <input id="onlineNameInput" class="mm-input" placeholder="Ton pseudo" maxlength="14" type="text" autocomplete="username" aria-label="Ton pseudo">
+
+    <button id="onlineCreateBtn" class="online-btn primary" onclick="startCreateRoom()" aria-label="Créer une salle">
+      🏠 Créer une salle
+    </button>
+
+    <div class="online-or">— ou rejoindre une salle existante —</div>
+
+    <input id="onlineCodeInput" class="mm-input" placeholder="ex: KZBT" maxlength="4" type="text"
+      style="text-transform:uppercase;text-align:center;letter-spacing:10px;font-size:22px;font-family:'Share Tech Mono',monospace;"
+      oninput="this.value=this.value.toUpperCase()" aria-label="Code de la salle">
+
+    <button id="onlineJoinBtn" class="online-btn secondary" onclick="startJoinRoom()" aria-label="Rejoindre une salle">
+      🚪 Rejoindre
+    </button>
+
+    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:8px;padding:12px;" aria-label="Retour au menu">← Retour</button>
+  </div>
+</div>
+
+<!-- ══ ONLINE LOBBY ══ -->
+<div id="screenOnlineLobby" class="screen hidden" role="main" aria-label="Salle d'attente">
+  <div class="online-box">
+    <div class="online-title" id="lobbyTitle">⏳ En attente…</div>
+
+    <div id="lobbyCode" style="margin:12px 0;text-align:center;"></div>
+
+    <div id="lobbyStatus" style="color:var(--muted);font-size:13px;text-align:center;min-height:44px;line-height:1.6;">
+      Connexion en cours…
+    </div>
+
+    <div class="lobby-spinner" aria-hidden="true">
+      <div class="lobby-dot"></div><div class="lobby-dot"></div><div class="lobby-dot"></div>
+    </div>
+
+    <button id="lobbyCopyBtn" class="online-btn outline" onclick="copyRoomCode()" aria-label="Copier le code de la salle">
+      📋 Copier le code
+    </button>
+
+    <button class="btn-back" onclick="cancelOnline()" style="width:100%;text-align:center;margin-top:8px;padding:12px;" aria-label="Annuler et retour">✕ Annuler</button>
+  </div>
+</div>
+
+</main>
+
+<!-- ══ BARRE GLOBALE ══ -->
+<nav class="global-bar" aria-label="Contrôles globaux">
+  <button class="gb-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Basculer le thème sombre ou clair">🌙 Mode sombre</button>
+  <div class="gb-sep" aria-hidden="true"></div>
+  <button class="gb-btn" id="muteBtn" onclick="toggleMute()" aria-label="Activer ou couper le son">🔊 Son</button>
+</nav>
+
+<audio id="menuMusic" src="Smooth_In_Heights_2026v2.mp3" preload="none" aria-hidden="true"></audio>
+
+<script type="module" src="logicshot.js"></script>
+
+<script>
+/* ── Loading screen removal ── */
+window.addEventListener('DOMContentLoaded', () => {
+  const ls = document.getElementById('loadingScreen');
+  if (!ls) return;
+  // Masquer dès que le script principal est chargé (ou au max 400ms)
+  let _hidden = false;
+  function hideLoader() {
+    if (_hidden) return;
+    _hidden = true;
+    ls.classList.add('fade-out');
+    setTimeout(() => ls.remove(), 400);
+  }
+  // Fallback : 400ms max (au lieu de 1200ms)
+  setTimeout(hideLoader, 400);
+  // Masquer dès que le premier écran est prêt
+  window.addEventListener('logicshot:ready', hideLoader, { once: true });
+});
+</script>
+
+</body>
+</html>
