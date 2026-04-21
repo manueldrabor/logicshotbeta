@@ -190,16 +190,25 @@ export function loadRound() {
 }
 
 /* ══ TIMER ══ */
+/* Référence partagée pour que Flash puisse décaler le timer en cours depuis receiveOpponentSuper */
+const _timerEndMsRef = { val: 0, pauseOffsetRef: { v: 0 } };
+
+/* Appelé par receiveOpponentSuper quand Flash est reçu — avance la fin du timer de −10s */
+export function applyFlashPenaltyOnTimer() {
+  if (!State.roundActive || isRelaxMode()) return;
+  _timerEndMsRef.val = Math.max(_timerEndMsRef.val - 10000, Date.now() + 500);
+}
+
 function startTimer(round, absoluteStart) {
   clearInterval(State.timerInterval);
   if (isRelaxMode()) return;
   /* Timestamp absolu partagé : les 2 appareils calculent timeLeft depuis le même t=0 */
-  const _endMs = (absoluteStart || Date.now()) + round.time * 1000;
+  _timerEndMsRef.val = (absoluteStart || Date.now()) + round.time * 1000;
   let _pauseStart = 0, _pauseOffset = 0;
   State.timerInterval = setInterval(() => {
     if (State.isPaused) { if (!_pauseStart) _pauseStart = Date.now(); return; }
     if (_pauseStart) { _pauseOffset += Date.now() - _pauseStart; _pauseStart = 0; }
-    State.timeLeft = Math.max(0, (_endMs + _pauseOffset - Date.now()) / 1000);
+    State.timeLeft = Math.max(0, (_timerEndMsRef.val + _pauseOffset - Date.now()) / 1000);
     updateTimerUI(State.timeLeft, round.time);
     if (State.timeLeft <= 0) {
       clearInterval(State.timerInterval); State.roundActive = false;
@@ -571,7 +580,7 @@ export function renderSupers() {
     const fl = 2 - p.superUsed.flash, gl = 2 - p.superUsed.glitch, sh = 1 - p.superUsed.shield;
     let html = '';
     if (State.unlockedSupers.flash)
-      html += `<button class="sp-btn flash-btn" ${fl <= 0 || p.superCooldown.flash ? 'disabled' : ''} aria-label="Super Flash, ${fl} utilisations restantes" onclick="window._activateSuper('${p.id}','flash')"><span class="sp-name">⚡ Flash</span><span class="sp-desc">(−10s timer IA)</span><div class="sp-uses">${fl}/2</div></button>`;
+      html += `<button class="sp-btn flash-btn" ${fl <= 0 || p.superCooldown.flash ? 'disabled' : ''} aria-label="Super Flash, ${fl} utilisations restantes" onclick="window._activateSuper('${p.id}','flash')"><span class="sp-name">⚡ Flash</span><span class="sp-desc">(−10s les 2 timers)</span><div class="sp-uses">${fl}/2</div></button>`;
     if (State.unlockedSupers.glitch)
       html += `<button class="sp-btn glitch-btn" ${gl <= 0 || p.superCooldown.glitch ? 'disabled' : ''} aria-label="Super Glitch, ${gl} utilisations restantes" onclick="window._activateSuper('${p.id}','glitch')"><span class="sp-name">👾 Glitch</span><span class="sp-desc">(altère formule)</span><div class="sp-uses">${gl}/2</div></button>`;
     if (State.unlockedSupers.shield)
@@ -588,9 +597,13 @@ export function activateSuper(pid, type) {
   const fd = document.getElementById('formulaDisplay');
   const superNames = { flash: '⚡ Flash', glitch: '👾 Glitch', shield: '🛡️ Bouclier' };
   if (type === 'flash') {
-    fd.classList.add('flash'); if (!isRelaxMode()) State.timeLeft = Math.max(1, State.timeLeft - 10);
+    fd.classList.add('flash');
+    /* Flash pénalise les DEUX timers : le sien ET celui de l'adversaire */
+    if (!isRelaxMode()) applyFlashPenaltyOnTimer();
     showImpactFX('⚡', 'var(--gold-neon)');
-    const msg = State.gameMode === 'online' ? `⚡ Flash envoyé — timer adversaire −10s !` : `${p.name} active ${superNames.flash} — −10s au timer de NEXUS !`;
+    const msg = State.gameMode === 'online'
+      ? `⚡ Flash — −10s sur les deux timers !`
+      : `${p.name} active ${superNames.flash} — −10s au timer de NEXUS !`;
     showFeedback(msg, 'ok');
     setTimeout(() => fd.classList.remove('flash'), 700);
   } else if (type === 'glitch') {
@@ -919,6 +932,14 @@ function _showReadyOverlay(myName, oppName) {
 
 /* ══════════════════════════════════════
    ONLINE SYNC — Countdown synchronisé
+   Le principe de synchronisation :
+   - L'hôte envoie nextAt = Date.now() + 3000
+   - Le message met ~latency ms à arriver chez l'invité
+   - L'invité fait son propre Date.now() + 3000 mais son horloge est
+     déjà "en avance" de ~latency ms → son countdown est naturellement
+     plus court de ~latency ms → les deux timers de jeu démarrent en même temps
+   - On affiche "SYNC…" pendant la phase de transit réseau pour que
+     l'utilisateur ne voie pas d'écran vide
    mode='overlay' : plein écran (round 1)
    mode='formula' : zone formule (rounds 2-10)
 ══════════════════════════════════════ */
@@ -926,41 +947,68 @@ function _ensureCdStyle() {
   if (document.getElementById('cdStyle')) return;
   const s = document.createElement('style');
   s.id = 'cdStyle';
-  s.textContent = `@keyframes cdPop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}`;
+  s.textContent = `@keyframes cdPop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
+  @keyframes syncPulse{0%,100%{opacity:.4}50%{opacity:1}}`;
   document.head.appendChild(s);
 }
 
 function _onlineCountdownThenLoad(startAt, mode) {
   _ensureCdStyle();
   let lastSec = -1;
+  /* Afficher immédiatement SYNC si on est encore dans la phase de transit */
+  const now = Date.now();
+  const msUntilStart = startAt - now;
+
+  /* Affichage initial SYNC pendant le transit réseau */
+  if (msUntilStart > 0) {
+    if (mode === 'overlay') {
+      const ov = document.getElementById('readyOverlay');
+      if (ov) ov.innerHTML =
+        `<div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;
+          color:var(--cyan);letter-spacing:4px;
+          animation:syncPulse 0.6s ease-in-out infinite;">SYNC…</div>`;
+    } else {
+      const fd = document.getElementById('formulaDisplay');
+      const fl = document.getElementById('formulaLabel');
+      if (fl) fl.textContent = 'SYNCHRONISATION…';
+      if (fd) {
+        fd.className = 'formula-big';
+        fd.style.cssText = `font-size:18px;color:var(--cyan);letter-spacing:4px;
+          animation:syncPulse 0.6s ease-in-out infinite;`;
+        fd.textContent = 'SYNC…';
+      }
+    }
+  }
 
   const tick = () => {
     const now  = Date.now();
     const ms   = startAt - now;
-    const secs = Math.min(5, Math.max(0, Math.ceil(ms / 1000))); /* toujours 5→0 */
+    const secs = Math.min(3, Math.max(0, Math.ceil(ms / 1000))); /* max 3s */
 
     if (secs !== lastSec) {
       lastSec = secs;
-      if (mode === 'overlay') {
-        const ov = document.getElementById('readyOverlay');
-        if (ov && ms > 0) ov.innerHTML =
-          `<div style="font-family:'Syne',sans-serif;font-size:clamp(80px,24vw,150px);
-            font-weight:800;color:#ffd700;
-            text-shadow:0 0 50px rgba(255,215,0,.9),0 0 100px rgba(255,215,0,.4);
-            animation:cdPop .3s cubic-bezier(.22,1,.36,1);">${secs}</div>
-           <div style="font-size:14px;color:rgba(255,255,255,.5);letter-spacing:4px;margin-top:8px;">PRÉPARE-TOI</div>`;
-      } else {
-        const fd = document.getElementById('formulaDisplay');
-        const fl = document.getElementById('formulaLabel');
-        if (fl) fl.textContent = 'ROUND SUIVANT';
-        if (fd) {
-          fd.className = 'formula-big';
-          fd.style.cssText = `font-size:clamp(72px,22vw,120px);color:var(--gold-neon);
-            text-shadow:0 0 30px var(--gold-glow);animation:cdPop .3s cubic-bezier(.22,1,.36,1);`;
-          fd.textContent = ms > 0 ? secs : '⚡';
+      if (ms > 0) {
+        if (mode === 'overlay') {
+          const ov = document.getElementById('readyOverlay');
+          if (ov) ov.innerHTML =
+            `<div style="font-family:'Syne',sans-serif;font-size:clamp(80px,24vw,150px);
+              font-weight:800;color:#ffd700;
+              text-shadow:0 0 50px rgba(255,215,0,.9),0 0 100px rgba(255,215,0,.4);
+              animation:cdPop .3s cubic-bezier(.22,1,.36,1);">${secs}</div>
+             <div style="font-size:14px;color:rgba(255,255,255,.5);letter-spacing:4px;margin-top:8px;">PRÉPARE-TOI</div>`;
+        } else {
+          const fd = document.getElementById('formulaDisplay');
+          const fl = document.getElementById('formulaLabel');
+          if (fl) fl.textContent = 'ROUND SUIVANT';
+          if (fd) {
+            fd.className = 'formula-big';
+            fd.style.cssText = `font-size:clamp(72px,22vw,120px);color:var(--gold-neon);
+              text-shadow:0 0 30px var(--gold-glow);animation:cdPop .3s cubic-bezier(.22,1,.36,1);`;
+            fd.textContent = secs;
+          }
+          const fa = document.getElementById('formulaAnswer');
+          if (fa) { fa.textContent = ''; fa.style.display = 'none'; }
         }
-        const fa = document.getElementById('formulaAnswer');
-        if (fa) { fa.textContent = ''; fa.style.display = 'none'; }
       }
     }
 
@@ -1009,7 +1057,7 @@ function _onlineNextRound() {
     setTimeout(() => {
       if (State._waitingNextRound === State.roundIndex) {
         State._waitingNextRound = -1;
-        _onlineCountdownThenLoad(Date.now() + 800, 'formula');
+        _onlineCountdownThenLoad(Date.now() + 3000, 'formula');
       }
     }, 6000);
   }
@@ -1019,9 +1067,9 @@ function _onlineNextRound() {
 export function fireNextRoundFromHost(roundIndex) {
   clearTimeout(State._ackFallback);
   if (roundIndex !== State.roundIndex) return;
-  /* 5s + latence → countdown toujours 5,4,3,2,1,0 sur les 2 appareils */
+  /* 3s + latence → SYNC affiché pendant le transit, puis 3,2,1 sur les 2 appareils */
   const latency = State.onlineAdapter?._getLatency?.() || 200;
-  const nextAt = Date.now() + 5000 + latency;
+  const nextAt = Date.now() + 3000 + latency;
   State.onlineAdapter?.broadcastNextRound(State.roundIndex, nextAt);
   _onlineCountdownThenLoad(nextAt, 'formula');
 }
@@ -1085,8 +1133,8 @@ export function receiveOpponentSuper(type) {
 
   sfx.superpow();
   if (type === 'flash') {
-    /* Flash adverse → notre timer recule de 10s */
-    State.timeLeft = Math.max(1, State.timeLeft - 10);
+    /* Flash adverse → décale la FIN du timer de −10s (effet réel sur le vrai timer) */
+    applyFlashPenaltyOnTimer();
     if (fd) { fd.classList.add('flash'); setTimeout(() => fd.classList.remove('flash'), 700); }
     showImpactFX('⚡', 'var(--red)');
     showFeedback(`<span style="color:var(--red);font-weight:800;">⚡ ${opp?.name || 'Adversaire'} active Flash — −10s sur ton timer !</span>`, 'fail');

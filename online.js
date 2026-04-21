@@ -259,8 +259,10 @@ function _onPlayerReady(name) {
 
 function _checkBothReady() {
   if (!_isHost || _readyPlayers.size < 2) return;
-  /* startAt = maintenant + 5s + latence → les 2 appareils voient exactement 5,4,3,2,1,0 */
-  const startAt = Date.now() + 5000 + _estimatedLatency;
+  /* startAt = maintenant + 3s + latence → les 2 appareils voient 3,2,1
+     Le message met ~latency ms à arriver → l'invité démarre son countdown
+     naturellement plus tard de ~latency ms → les timers de jeu démarrent ensemble */
+  const startAt = Date.now() + 3000 + _estimatedLatency;
   _send({ type: 'start_at', startAt });
   import('./battle.js').then(({ receiveStartAt }) => receiveStartAt(startAt));
 }
