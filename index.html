@@ -59,27 +59,53 @@
 <!-- ══ SPLASH ══ -->
 <div id="screenSplash" class="screen" role="main" aria-label="Menu principal">
   <!-- Logo SVG -->
-  <div class="splash-logo-wrap" aria-label="LogicShot">
+  <div class="splash-logo-wrap" aria-label="LogicShot" style="position:relative;">
+    <!-- Float bar install PWA — flotte au-dessus du logo -->
+    <div id="pwaInstallBar" style="display:none;width:100%;margin-bottom:10px;">
+      <button id="pwaInstallBtn" onclick="triggerPwaInstall()"
+        style="width:100%;padding:11px 18px;
+               background:linear-gradient(135deg,#00b4ff 0%,#0088ee 100%);
+               color:#fff;border:none;border-radius:50px;
+               font-family:'Syne',sans-serif;font-size:13px;font-weight:800;
+               letter-spacing:0.5px;cursor:pointer;
+               box-shadow:0 0 18px rgba(0,180,255,0.55),0 2px 8px rgba(0,0,0,0.2);
+               display:flex;align-items:center;justify-content:center;gap:8px;">
+        <span style="font-size:17px;">📲</span> INSTALLER L'APP
+      </button>
+    </div>
+    <!-- Instruction iOS Safari -->
+    <div id="iosInstallHint" style="display:none;width:100%;margin-bottom:10px;
+         padding:9px 14px;
+         background:rgba(0,180,255,0.07);
+         border:1px solid rgba(0,180,255,0.3);
+         border-radius:50px;font-size:11px;
+         color:var(--muted);text-align:center;line-height:1.5;
+         box-shadow:0 0 14px rgba(0,180,255,0.15);">
+      📲 <strong style="color:var(--text)">Installer</strong> :
+      appuie sur <strong>⎙ Partager</strong> →
+      <strong>« Écran d'accueil »</strong>
+    </div>
     <svg class="splash-logo-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect width="64" height="64" rx="14" fill="#ffffff"/>
-      <circle cx="32" cy="32" r="28" fill="none" stroke="#FFD700" stroke-width="1.5" opacity="0.5"/>
-      <circle cx="32" cy="32" r="23" fill="none" stroke="#00B4FF" stroke-width="2.5"/>
-      <circle cx="32" cy="32" r="16" fill="none" stroke="#FFD700" stroke-width="2"/>
-      <circle cx="32" cy="32" r="9"  fill="none" stroke="#00B4FF" stroke-width="1.8"/>
-      <circle cx="32" cy="32" r="4"  fill="#FFD700"/>
-      <circle cx="32" cy="32" r="1.8" fill="#ffffff"/>
-      <line x1="32" y1="3"  x2="32" y2="11" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
-      <line x1="32" y1="53" x2="32" y2="61" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
-      <line x1="3"  y1="32" x2="11" y2="32" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
-      <line x1="53" y1="32" x2="61" y2="32" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
-      <line x1="8"  y1="8"  x2="13" y2="13" stroke="#FFD700" stroke-width="1.8" stroke-linecap="round"/>
-      <line x1="56" y1="8"  x2="51" y2="13" stroke="#FFD700" stroke-width="1.8" stroke-linecap="round"/>
-      <line x1="8"  y1="56" x2="13" y2="51" stroke="#FFD700" stroke-width="1.8" stroke-linecap="round"/>
-      <line x1="56" y1="56" x2="51" y2="51" stroke="#FFD700" stroke-width="1.8" stroke-linecap="round"/>
-      <line x1="32" y1="14" x2="32" y2="18" stroke="#00B4FF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
-      <line x1="32" y1="46" x2="32" y2="50" stroke="#00B4FF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
-      <line x1="14" y1="32" x2="18" y2="32" stroke="#00B4FF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
-      <line x1="46" y1="32" x2="50" y2="32" stroke="#00B4FF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+  <!-- Anneau bleu extérieur -->
+  <circle cx="32" cy="32" r="23" fill="none" stroke="#00B4FF" stroke-width="2.5"/>
+  <!-- Anneau or -->
+  <circle cx="32" cy="32" r="16" fill="none" stroke="#FFD700" stroke-width="2.25"/>
+  <!-- Anneau bleu intérieur -->
+  <circle cx="32" cy="32" r="9"  fill="none" stroke="#00B4FF" stroke-width="2.1"/>
+  <!-- Dot or central -->
+  <circle cx="32" cy="32" r="4"  fill="#FFD700"/>
+  <!-- Centre blanc -->
+  <circle cx="32" cy="32" r="1.8" fill="#ffffff"/>
+  <!-- Croix bleue -->
+  <line x1="35.2" y1="32"   x2="52.5" y2="32"   stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="11.5" y1="32"   x2="28.8" y2="32"   stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="32"   y1="11.5" x2="32"   y2="28.8" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="32"   y1="35.2" x2="32"   y2="52.5" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Ticks diagonaux or -->
+  <line x1="37.1" y1="26.9" x2="40.3" y2="23.7" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="37.1" y1="37.1" x2="40.3" y2="40.3" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="26.9" y1="37.1" x2="23.7" y2="40.3" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="26.9" y1="26.9" x2="23.7" y2="23.7" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/>
     </svg>
     <div class="splash-wordmark">
       <span class="logo-gold">Logic</span><span class="logo-shot">Shot</span>
@@ -127,25 +153,7 @@
       </div>
     </button>
   </div>
-  <!-- Bouton install PWA (Android/Chrome) -->
-  <div id="pwaInstallBar" style="display:none;margin:0 0 10px;width:100%;">
-    <button id="pwaInstallBtn" onclick="triggerPwaInstall()"
-      style="width:100%;padding:13px;background:linear-gradient(135deg,#00b4ff,#0077cc);
-             color:#fff;border:none;border-radius:14px;font-family:'Syne',sans-serif;
-             font-size:14px;font-weight:800;letter-spacing:1px;cursor:pointer;
-             box-shadow:0 4px 18px rgba(0,180,255,0.35);">
-      📲 INSTALLER L'APP
-    </button>
-  </div>
-  <!-- Instruction iOS (Safari) -->
-  <div id="iosInstallHint" style="display:none;margin:0 0 10px;padding:12px 14px;
-       background:rgba(0,180,255,0.08);border:1px solid rgba(0,180,255,0.25);
-       border-radius:12px;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;">
-    📲 <strong style="color:var(--text)">Installer LogicShot</strong><br>
-    Appuie sur <strong>⎙ Partager</strong> puis <strong>« Sur l'écran d'accueil »</strong>
-  </div>
-
-  <div class="splash-extras">
+    <div class="splash-extras">
     <button class="extra-btn" onclick="showLeaderboard()" aria-label="Voir le classement">🏆 Classement</button>
     <button class="extra-btn" onclick="showShop()" aria-label="Ouvrir la boutique">🛒 Boutique</button>
     <button class="extra-btn" onclick="showDonation()" aria-label="Soutenir le jeu">❤️ Soutien</button>
