@@ -1067,11 +1067,24 @@ function _onlineNextRound() {
 export function fireNextRoundFromHost(roundIndex) {
   clearTimeout(State._ackFallback);
   if (roundIndex !== State.roundIndex) return;
-  /* 3s + latence → SYNC affiché pendant le transit, puis 3,2,1 sur les 2 appareils */
-  const latency = State.onlineAdapter?._getLatency?.() || 200;
-  const nextAt = Date.now() + 3000 + latency;
-  State.onlineAdapter?.broadcastNextRound(State.roundIndex, nextAt);
-  _onlineCountdownThenLoad(nextAt, 'formula');
+  /* Mesure l'offset d'horloge NTP PUIS envoie nextAt corrigé.
+     offset = heure_invité - heure_hôte
+     nextAt = Date.now()_hôte + 3s - offset
+     → quand l'invité reçoit nextAt, son Date.now() ≈ Date.now()_hôte + offset
+       donc nextAt - Date.now()_invité ≈ 3s - offset + offset = 3s exactement.
+     Les deux timers de jeu démarrent au même instant absolu. */
+  const syncClock = State.onlineAdapter?._syncClock;
+  const doFire = (offset) => {
+    if (roundIndex !== State.roundIndex) return; /* guard si round changé pendant sync */
+    const nextAt = Date.now() + 3000 - (offset || 0);
+    State.onlineAdapter?.broadcastNextRound(State.roundIndex, nextAt);
+    _onlineCountdownThenLoad(nextAt, 'formula');
+  };
+  if (syncClock) {
+    syncClock().then(doFire).catch(() => doFire(0));
+  } else {
+    doFire(0);
+  }
 }
 
 export function receiveNextRound(roundIndex, nextAt) {

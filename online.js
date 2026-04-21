@@ -21,7 +21,19 @@ let _pingIv    = null;
 let _pingCheck = null;
 let _lastPing  = 0;
 let _pingSentAt = 0;
-let _estimatedLatency = 200; /* latence estimée en ms (défaut 200ms) */
+let _estimatedLatency = 200; /* latence one-way estimée en ms (défaut 200ms) */
+
+/* ── Synchronisation d'horloge NTP-style ──
+   Juste avant d'envoyer nextAt, l'hôte mesure l'offset exact entre
+   les deux horloges en 1 aller-retour :
+     t1 = hôte envoie sync_probe
+     t2 = invité reçoit et répond immédiatement (son Date.now())
+     t3 = hôte reçoit la réponse
+   offset = ((t2 - t1) + (t2 - t3)) / 2  ≈  heure_invité - heure_hôte
+   nextAt est envoyé APRÈS mesure → les deux appareils démarrent au même instant absolu */
+let _clockOffset = 0;    /* heure_invité - heure_hôte en ms */
+let _syncProbeT1 = 0;    /* timestamp d'envoi de la probe */
+let _syncResolve = null; /* resolve() de la Promise en attente */
 
 /* ══ SUPABASE CLIENT (CDN lazy) ══ */
 async function getSB() {
@@ -170,6 +182,8 @@ function _setupAdapter() {
     broadcastGameOver    : () =>
       _send({ type: 'player_quit', name: _myName }),
     _getLatency          : () => _estimatedLatency,
+    _syncClock           : () => _syncClock(),
+    _getClockOffset      : () => _clockOffset,
     _sendTimerSync       : (timeLeft, roundIndex) =>
       _send({ type: 'timer_sync', timeLeft, roundIndex }),
     cleanup              : cleanup
@@ -196,8 +210,26 @@ function _handleMsg(data) {
       _lastPing = Date.now();
       if (_pingSentAt > 0) {
         const rtt = Date.now() - _pingSentAt;
-        _estimatedLatency = Math.min(1500, Math.max(50, rtt / 2));
+        _estimatedLatency = Math.min(1500, Math.max(10, rtt / 2));
         _pingSentAt = 0;
+      }
+      break;
+    /* ── Handshake NTP : l'invité répond immédiatement avec son timestamp ── */
+    case 'sync_probe':
+      _send({ type: 'sync_reply', t1: data.t1, t2: Date.now() });
+      break;
+    /* ── L'hôte reçoit la réponse et calcule l'offset d'horloge exact ── */
+    case 'sync_reply':
+      if (_syncProbeT1 > 0) {
+        const t3 = Date.now();
+        const t1 = _syncProbeT1, t2 = data.t2;
+        /* offset = heure_invité - heure_hôte  (formule NTP classique)
+           Si offset > 0 : l'invité est en avance → nextAt doit être augmenté
+           Si offset < 0 : l'invité est en retard → nextAt doit être diminué */
+        _clockOffset = ((t2 - t1) + (t2 - t3)) / 2;
+        _estimatedLatency = Math.max(10, (t3 - t1) / 2);
+        _syncProbeT1 = 0;
+        if (_syncResolve) { _syncResolve(_clockOffset); _syncResolve = null; }
       }
       break;
     case 'guest_joined':    if (_isHost)  _onGuestJoined(data.name);  break;
@@ -257,14 +289,36 @@ function _onPlayerReady(name) {
   _checkBothReady();
 }
 
+/* ── Mesure NTP : envoie une probe et retourne une Promise<offset> ──
+   Timeout 1s si pas de réponse (réseau dégradé) → fallback sur _estimatedLatency */
+function _syncClock() {
+  return new Promise(resolve => {
+    _syncProbeT1 = Date.now();
+    _syncResolve = resolve;
+    _send({ type: 'sync_probe', t1: _syncProbeT1 });
+    setTimeout(() => {
+      if (_syncResolve) {
+        /* Timeout : pas de réponse → utiliser latence estimée comme fallback */
+        _syncResolve(0);
+        _syncResolve = null;
+        _syncProbeT1 = 0;
+      }
+    }, 1000);
+  });
+}
+
 function _checkBothReady() {
   if (!_isHost || _readyPlayers.size < 2) return;
-  /* startAt = maintenant + 3s + latence → les 2 appareils voient 3,2,1
-     Le message met ~latency ms à arriver → l'invité démarre son countdown
-     naturellement plus tard de ~latency ms → les timers de jeu démarrent ensemble */
-  const startAt = Date.now() + 3000 + _estimatedLatency;
-  _send({ type: 'start_at', startAt });
-  import('./battle.js').then(({ receiveStartAt }) => receiveStartAt(startAt));
+  /* Mesure l'offset d'horloge exact par handshake NTP, PUIS envoie startAt.
+     nextAt est calculé APRÈS mesure → les deux appareils démarrent au même instant.
+     offset = heure_invité - heure_hôte → on corrige nextAt en soustrayant l'offset
+     (si l'invité est en avance de 50ms, on envoie un nextAt 50ms plus petit
+      pour que son t=0 coïncide avec celui de l'hôte) */
+  _syncClock().then(offset => {
+    const startAt = Date.now() + 3000 - offset;
+    _send({ type: 'start_at', startAt });
+    import('./battle.js').then(({ receiveStartAt }) => receiveStartAt(startAt));
+  });
 }
 
 function _onStartAt(startAt) {
