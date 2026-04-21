@@ -59,7 +59,11 @@ export const State = {
 
   /* ── XP / Progression ── */
   get xp() { return parseInt(localStorage.getItem('ls_xp') || '0'); },
-  set xp(v) { localStorage.setItem('ls_xp', Math.max(0, v).toString()); },
+  set xp(v) {
+    localStorage.setItem('ls_xp', Math.max(0, v).toString());
+    /* Sync cloud en arrière-plan (fire-and-forget) */
+    import('./leaderboard.js').then(m => m.syncProgressToCloud()).catch(() => {});
+  },
   get xpLevel() {
     const xp = this.xp;
     if (xp < 500)  return { level: 1, title: 'Recrue',        next: 500 };

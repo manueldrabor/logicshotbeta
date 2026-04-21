@@ -53,6 +53,7 @@ window.goSplash = goSplash;
 window.showTutorial = showTutorial;
 window.closeTutorial = closeTutorial;
 window.startOnlineMode = startOnlineMode;
+/* showRecoveryCode est défini en bas du fichier comme window.showRecoveryCode */
 window.startCreateRoom = startCreateRoom;
 window.startJoinRoom = startJoinRoom;
 window.copyRoomCode = copyRoomCode;
@@ -534,6 +535,11 @@ window.addEventListener('popstate', () => {
   initAudioAutoplay();
   renderXPBar();
 
+  /* Restaurer progression cloud si localStorage vide (ex: cache effacé sur mobile) */
+  import('./leaderboard.js').then(m => {
+    m.loadProgressFromCloud().then(() => renderXPBar()).catch(() => {});
+  }).catch(() => {});
+
   /* Tutoriel premier lancement */
   if (!localStorage.getItem('ls_tutorial_done')) {
     setTimeout(() => {
@@ -555,3 +561,96 @@ window.addEventListener('popstate', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
 })();
+
+/* ══════════════════════════════════════
+   CODE DE RÉCUPÉRATION — UI
+   Bouton "🔑 Récupération" dans le splash
+══════════════════════════════════════ */
+window.showRecoveryCode = async function() {
+  /* Créer la modale */
+  const m = document.createElement('div');
+  m.id = 'recoveryModal';
+  m.style.cssText = `position:fixed;inset:0;z-index:9200;display:flex;align-items:center;
+    justify-content:center;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);padding:20px;`;
+  m.innerHTML = `
+    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;
+      padding:28px 24px;max-width:340px;width:100%;text-align:center;position:relative;">
+      <button onclick="document.getElementById('recoveryModal')?.remove()"
+        style="position:absolute;top:12px;right:14px;background:none;border:none;
+          font-size:20px;color:var(--muted);cursor:pointer;">✕</button>
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px;
+        color:var(--gold);margin-bottom:6px;">🔑 Code de récupération</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.5;">
+        Note ce code pour restaurer ta progression<br>sur un nouvel appareil ou après effacement du cache.
+      </div>
+      <div id="recCodeDisplay" style="font-family:'Share Tech Mono',monospace;font-size:24px;
+        font-weight:700;letter-spacing:3px;color:var(--cyan);
+        background:rgba(0,180,255,.08);border:1px solid var(--cyan);
+        border-radius:12px;padding:14px;margin-bottom:16px;">
+        <span style="opacity:.5;font-size:13px;">Chargement…</span>
+      </div>
+      <button onclick="window._copyRecCode()"
+        style="width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--gold-neon);
+          background:transparent;color:var(--gold-neon);font-weight:700;font-size:14px;
+          cursor:pointer;margin-bottom:10px;letter-spacing:1px;">📋 Copier le code</button>
+      <div style="margin:16px 0;font-size:11px;color:var(--muted);letter-spacing:1px;">— OU —</div>
+      <div style="font-size:13px;color:var(--fg);margin-bottom:10px;font-weight:600;">
+        Restaurer depuis un code :
+      </div>
+      <input id="recCodeInput" placeholder="Ex: TIGRE-4821" maxlength="12"
+        style="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;
+          border:1.5px solid var(--border);background:var(--bg);color:var(--fg);
+          font-family:'Share Tech Mono',monospace;font-size:16px;text-align:center;
+          text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;"
+        oninput="this.value=this.value.toUpperCase()">
+      <button onclick="window._restoreFromCode()"
+        style="width:100%;padding:12px;border-radius:12px;border:none;
+          background:var(--gold-neon);color:#1a1200;font-weight:800;font-size:14px;
+          cursor:pointer;letter-spacing:1px;">🔄 Restaurer ma progression</button>
+      <div id="recMsg" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
+    </div>`;
+  document.body.appendChild(m);
+
+  /* Charger le code existant */
+  import('./leaderboard.js').then(async ({ getOrCreateRecoveryCode }) => {
+    const code = await getOrCreateRecoveryCode();
+    const disp = document.getElementById('recCodeDisplay');
+    if (disp) disp.textContent = code || '(hors ligne)';
+    window._currentRecCode = code;
+  }).catch(() => {
+    const disp = document.getElementById('recCodeDisplay');
+    if (disp) disp.textContent = '(hors ligne)';
+  });
+};
+
+window._copyRecCode = function() {
+  const code = window._currentRecCode;
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => {
+    const msg = document.getElementById('recMsg');
+    if (msg) { msg.style.color = 'var(--green)'; msg.textContent = '✅ Code copié !'; }
+  }).catch(() => {
+    const msg = document.getElementById('recMsg');
+    if (msg) { msg.style.color = 'var(--muted)'; msg.textContent = code; }
+  });
+};
+
+window._restoreFromCode = async function() {
+  const inp = document.getElementById('recCodeInput');
+  const msg = document.getElementById('recMsg');
+  if (!inp || !inp.value.trim()) { if (msg) { msg.style.color='var(--red)'; msg.textContent='Entre un code.'; } return; }
+  if (msg) { msg.style.color='var(--muted)'; msg.textContent='Restauration…'; }
+  try {
+    const { restoreFromRecoveryCode } = await import('./leaderboard.js');
+    const name = await restoreFromRecoveryCode(inp.value.trim());
+    if (msg) { msg.style.color='var(--green)'; msg.textContent=`✅ Progression de ${name} restaurée !`; }
+    /* Re-render XP bar */
+    setTimeout(() => {
+      renderXPBar();
+      document.getElementById('recoveryModal')?.remove();
+      alert(`✅ Progression de "${name}" restaurée avec succès !`);
+    }, 1200);
+  } catch(e) {
+    if (msg) { msg.style.color='var(--red)'; msg.textContent=e.message || 'Erreur inconnue.'; }
+  }
+};

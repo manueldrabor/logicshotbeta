@@ -223,11 +223,16 @@ function _handleMsg(data) {
       if (_syncProbeT1 > 0) {
         const t3 = Date.now();
         const t1 = _syncProbeT1, t2 = data.t2;
-        /* offset = heure_invité - heure_hôte  (formule NTP classique)
-           Si offset > 0 : l'invité est en avance → nextAt doit être augmenté
-           Si offset < 0 : l'invité est en retard → nextAt doit être diminué */
-        _clockOffset = ((t2 - t1) + (t2 - t3)) / 2;
-        _estimatedLatency = Math.max(10, (t3 - t1) / 2);
+        /* Formule NTP correcte avec 3 timestamps :
+           rtt    = t3 - t1  (aller-retour complet)
+           offset = t2 - t1 - rtt/2  = t2 - (t1+t3)/2
+           (positif si l'horloge invité est en avance sur l'hôte)
+           nextAt = Date.now() + 3000 + rtt/2 :
+             l'hôte attend rtt/2 ms de plus → le message arrive chez l'invité exactement
+             quand l'hôte est à t=0, les deux comptent à rebours depuis le même instant absolu */
+        const rtt = t3 - t1;
+        _clockOffset = t2 - (t1 + t3) / 2;   /* heure_invité - heure_hôte */
+        _estimatedLatency = Math.max(10, rtt / 2);
         _syncProbeT1 = 0;
         if (_syncResolve) { _syncResolve(_clockOffset); _syncResolve = null; }
       }
@@ -309,13 +314,15 @@ function _syncClock() {
 
 function _checkBothReady() {
   if (!_isHost || _readyPlayers.size < 2) return;
-  /* Mesure l'offset d'horloge exact par handshake NTP, PUIS envoie startAt.
-     nextAt est calculé APRÈS mesure → les deux appareils démarrent au même instant.
-     offset = heure_invité - heure_hôte → on corrige nextAt en soustrayant l'offset
-     (si l'invité est en avance de 50ms, on envoie un nextAt 50ms plus petit
-      pour que son t=0 coïncide avec celui de l'hôte) */
-  _syncClock().then(offset => {
-    const startAt = Date.now() + 3000 - offset;
+  /* Mesure le RTT exact par handshake NTP, PUIS envoie startAt.
+     nextAt = Date.now() + 3000 + rtt/2 :
+       - l'hôte attend rtt/2 ms de plus que le "vrai" t=0
+       - le message met rtt/2 ms à arriver chez l'invité
+       - quand l'invité reçoit le message, son Date.now() ≈ nextAt - 3000
+       → les deux countdowns démarrent au même instant absolu */
+  _syncClock().then(() => {
+    const rtt = _estimatedLatency * 2;   /* rtt = 2 × one-way */
+    const startAt = Date.now() + 3000 + Math.min(rtt / 2, 500);
     _send({ type: 'start_at', startAt });
     import('./battle.js').then(({ receiveStartAt }) => receiveStartAt(startAt));
   });

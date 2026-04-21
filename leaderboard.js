@@ -143,6 +143,9 @@ export async function updateElo(name, eloDelta, won) {
           name,                                          // nom peut avoir changé
           elo: Math.max(800, row.elo + eloDelta),
           wins: (row.wins || 0) + (won ? 1 : 0),
+          xp:   parseInt(localStorage.getItem('ls_xp') || '0'),
+          beaten: localStorage.getItem('ls_beaten') || '[]',
+          stars:  localStorage.getItem('ls_stars')  || '{}',
           updated_at: new Date().toISOString()
         })
       });
@@ -172,3 +175,134 @@ function updateLocalElo(name, delta) {
 }
 
 export function isOnlineLeaderboard() { return isConfigured; }
+
+/* ══════════════════════════════════════
+   SYNC PROGRESSION (XP / story / étoiles)
+   SQL à exécuter UNE FOIS dans Supabase :
+     ALTER TABLE leaderboard ADD COLUMN IF NOT EXISTS xp int DEFAULT 0;
+     ALTER TABLE leaderboard ADD COLUMN IF NOT EXISTS beaten text DEFAULT '[]';
+     ALTER TABLE leaderboard ADD COLUMN IF NOT EXISTS stars text DEFAULT '{}';
+     ALTER TABLE leaderboard ADD COLUMN IF NOT EXISTS recovery_code text;
+     CREATE UNIQUE INDEX IF NOT EXISTS lb_recovery_code_idx
+       ON leaderboard(recovery_code) WHERE recovery_code IS NOT NULL;
+══════════════════════════════════════ */
+
+/* Pousse XP + beaten + stars vers Supabase (fire-and-forget) */
+export async function syncProgressToCloud() {
+  if (!isConfigured) return;
+  const deviceId = Save.getDeviceId();
+  try {
+    const xp     = parseInt(localStorage.getItem('ls_xp')     || '0');
+    const beaten = localStorage.getItem('ls_beaten') || '[]';
+    const stars  = localStorage.getItem('ls_stars')  || '{}';
+    const rows = await supaFetch(
+      `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=id`
+    );
+    if (rows.length === 0) return; /* pas encore de ligne → updateElo créera */
+    await supaFetch(`leaderboard?id=eq.${rows[0].id}`, {
+      method: 'PATCH',
+      headers: { Prefer: '' },
+      body: JSON.stringify({ xp, beaten, stars, updated_at: new Date().toISOString() })
+    });
+  } catch(e) { /* fail silently */ }
+}
+
+/* Restaure progression depuis Supabase si localStorage vide (cache effacé) */
+export async function loadProgressFromCloud() {
+  if (!isConfigured) return;
+  const deviceId = Save.getDeviceId();
+  const localXp  = parseInt(localStorage.getItem('ls_xp') || '0');
+  /* Si on a déjà du XP local, pas besoin de charger */
+  if (localXp > 0) return;
+  try {
+    const rows = await supaFetch(
+      `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=xp,beaten,stars,name`
+    );
+    if (!rows || rows.length === 0) return;
+    const row = rows[0];
+    /* Fusion : prend le max pour XP, union pour beaten, max par niveau pour stars */
+    const cloudXp     = row.xp     || 0;
+    const cloudBeaten = JSON.parse(row.beaten || '[]');
+    const cloudStars  = JSON.parse(row.stars  || '{}');
+    if (cloudXp > 0) localStorage.setItem('ls_xp', String(cloudXp));
+    if (cloudBeaten.length > 0) localStorage.setItem('ls_beaten', JSON.stringify(cloudBeaten));
+    if (Object.keys(cloudStars).length > 0) localStorage.setItem('ls_stars', JSON.stringify(cloudStars));
+    if (row.name) Save.savePlayerName(row.name);
+  } catch(e) { /* fail silently */ }
+}
+
+/* ══════════════════════════════════════
+   CODE DE RÉCUPÉRATION
+   Génère un code XXXX-YYYY lisible, unique
+   et lié au device_id dans Supabase.
+══════════════════════════════════════ */
+function _genRecoveryCode() {
+  const WORDS = ['TIGRE','AIGLE','LOUP','COBRA','LYNX','PUMA','VIPER','ORYX',
+                 'BISON','DINGO','GECKO','HYENE','IBIS','JAGUAR','KOALA'];
+  const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+  const num  = 1000 + Math.floor(Math.random() * 9000);
+  return `${word}-${num}`;
+}
+
+/* Génère (ou récupère) le code de récupération pour ce device */
+export async function getOrCreateRecoveryCode() {
+  if (!isConfigured) return null;
+  const deviceId = Save.getDeviceId();
+  try {
+    const rows = await supaFetch(
+      `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=id,recovery_code`
+    );
+    if (!rows || rows.length === 0) return null;
+    const row = rows[0];
+    if (row.recovery_code) return row.recovery_code;
+    /* Générer un code unique */
+    let code, attempts = 0;
+    do {
+      code = _genRecoveryCode();
+      attempts++;
+      const check = await supaFetch(
+        `leaderboard?recovery_code=eq.${encodeURIComponent(code)}&select=id`
+      );
+      if (check.length === 0) break;
+    } while (attempts < 10);
+    /* Sauvegarder le code */
+    await supaFetch(`leaderboard?id=eq.${row.id}`, {
+      method: 'PATCH',
+      headers: { Prefer: '' },
+      body: JSON.stringify({ recovery_code: code })
+    });
+    return code;
+  } catch(e) { return null; }
+}
+
+/* Restaure la progression depuis un code de récupération saisi par l'utilisateur */
+export async function restoreFromRecoveryCode(code) {
+  if (!isConfigured) throw new Error('Mode hors ligne — impossible de restaurer.');
+  const clean = code.trim().toUpperCase();
+  try {
+    const rows = await supaFetch(
+      `leaderboard?recovery_code=eq.${encodeURIComponent(clean)}&select=device_id,name,elo,xp,beaten,stars`
+    );
+    if (!rows || rows.length === 0) throw new Error('Code introuvable. Vérifie la saisie.');
+    const row = rows[0];
+    /* Réassigner ce device_id à l'appareil courant */
+    const newDeviceId = Save.getDeviceId();
+    await supaFetch(
+      `leaderboard?recovery_code=eq.${encodeURIComponent(clean)}`, {
+      method: 'PATCH',
+      headers: { Prefer: '' },
+      body: JSON.stringify({ device_id: newDeviceId })
+    });
+    /* Restaurer localement */
+    if (row.name)   Save.savePlayerName(row.name);
+    if (row.xp > 0) localStorage.setItem('ls_xp', String(row.xp));
+    const beaten = JSON.parse(row.beaten || '[]');
+    const stars  = JSON.parse(row.stars  || '{}');
+    if (beaten.length > 0) localStorage.setItem('ls_beaten', JSON.stringify(beaten));
+    if (Object.keys(stars).length > 0) localStorage.setItem('ls_stars', JSON.stringify(stars));
+    const elo = Save.getElo();
+    elo[row.name] = row.elo || 1000;
+    Save.saveElo(elo);
+    return row.name;
+  } catch(e) { throw e; }
+}
