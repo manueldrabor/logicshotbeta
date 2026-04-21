@@ -127,6 +127,24 @@
       </div>
     </button>
   </div>
+  <!-- Bouton install PWA (Android/Chrome) -->
+  <div id="pwaInstallBar" style="display:none;margin:0 0 10px;width:100%;">
+    <button id="pwaInstallBtn" onclick="triggerPwaInstall()"
+      style="width:100%;padding:13px;background:linear-gradient(135deg,#00b4ff,#0077cc);
+             color:#fff;border:none;border-radius:14px;font-family:'Syne',sans-serif;
+             font-size:14px;font-weight:800;letter-spacing:1px;cursor:pointer;
+             box-shadow:0 4px 18px rgba(0,180,255,0.35);">
+      📲 INSTALLER L'APP
+    </button>
+  </div>
+  <!-- Instruction iOS (Safari) -->
+  <div id="iosInstallHint" style="display:none;margin:0 0 10px;padding:12px 14px;
+       background:rgba(0,180,255,0.08);border:1px solid rgba(0,180,255,0.25);
+       border-radius:12px;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;">
+    📲 <strong style="color:var(--text)">Installer LogicShot</strong><br>
+    Appuie sur <strong>⎙ Partager</strong> puis <strong>« Sur l'écran d'accueil »</strong>
+  </div>
+
   <div class="splash-extras">
     <button class="extra-btn" onclick="showLeaderboard()" aria-label="Voir le classement">🏆 Classement</button>
     <button class="extra-btn" onclick="showShop()" aria-label="Ouvrir la boutique">🛒 Boutique</button>
@@ -377,6 +395,49 @@
 <audio id="menuMusic" src="Smooth_In_Heights_2026v2.mp3" preload="none" aria-hidden="true"></audio>
 
 <script type="module" src="logicshot.js"></script>
+
+<script>
+/* ══ PWA INSTALL PROMPT ══ */
+let _pwaPrompt = null;
+
+/* Android / Chrome — capture l'événement beforeinstallprompt */
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaPrompt = e;
+  const bar = document.getElementById('pwaInstallBar');
+  if (bar) bar.style.display = 'block';
+});
+
+window.triggerPwaInstall = function() {
+  if (!_pwaPrompt) return;
+  _pwaPrompt.prompt();
+  _pwaPrompt.userChoice.then(r => {
+    if (r.outcome === 'accepted') {
+      document.getElementById('pwaInstallBar').style.display = 'none';
+    }
+    _pwaPrompt = null;
+  });
+};
+
+/* iOS Safari — détecter et afficher l'instruction manuelle */
+(function() {
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true;
+  if (isIOS && isSafari && !isStandalone) {
+    const hint = document.getElementById('iosInstallHint');
+    if (hint) hint.style.display = 'block';
+  }
+})();
+
+/* Masquer les bandeaux si déjà installé */
+window.addEventListener('appinstalled', () => {
+  const bar = document.getElementById('pwaInstallBar');
+  const hint = document.getElementById('iosInstallHint');
+  if (bar) bar.style.display = 'none';
+  if (hint) hint.style.display = 'none';
+});
+</script>
 
 <script>
 /* ── Loading screen removal ── */

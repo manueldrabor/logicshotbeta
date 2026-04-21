@@ -20,6 +20,8 @@ let _code      = '';
 let _pingIv    = null;
 let _pingCheck = null;
 let _lastPing  = 0;
+let _pingSentAt = 0;
+let _estimatedLatency = 200; /* latence estimée en ms (défaut 200ms) */
 
 /* ══ SUPABASE CLIENT (CDN lazy) ══ */
 async function getSB() {
@@ -129,7 +131,7 @@ async function _subscribe(code) {
         /* Vider la queue des messages en attente */
         while (_msgQueue.length) _channel.send({ type: 'broadcast', event: 'game', payload: _msgQueue.shift() });
         /* Ping toutes les 5s */
-        _pingIv    = setInterval(() => _send({ type: 'ping' }), 5000);
+        _pingIv    = setInterval(() => { _pingSentAt = Date.now(); _send({ type: 'ping' }); }, 5000);
         /* Détection déconnexion si pas de pong depuis 20s */
         _pingCheck = setInterval(() => {
           if (State.roundActive && Date.now() - _lastPing > 20000) _onDisconnect();
@@ -167,6 +169,7 @@ function _setupAdapter() {
       _send({ type: 'next_round', roundIndex, nextAt }),
     broadcastGameOver    : () =>
       _send({ type: 'player_quit', name: _myName }),
+    _getLatency          : () => _estimatedLatency,
     _sendTimerSync       : (timeLeft, roundIndex) =>
       _send({ type: 'timer_sync', timeLeft, roundIndex }),
     cleanup              : cleanup
@@ -189,7 +192,14 @@ function _send(data) {
 function _handleMsg(data) {
   switch (data.type) {
     case 'ping':            _lastPing = Date.now(); _send({ type: 'pong' }); break;
-    case 'pong':            _lastPing = Date.now(); break;
+    case 'pong':
+      _lastPing = Date.now();
+      if (_pingSentAt > 0) {
+        const rtt = Date.now() - _pingSentAt;
+        _estimatedLatency = Math.min(1500, Math.max(50, rtt / 2));
+        _pingSentAt = 0;
+      }
+      break;
     case 'guest_joined':    if (_isHost)  _onGuestJoined(data.name);  break;
     case 'game_start':      if (!_isHost) _onGameStart(data);          break;
     case 'player_ready':    _onPlayerReady(data.name);                 break;
@@ -248,11 +258,10 @@ function _onPlayerReady(name) {
 }
 
 function _checkBothReady() {
-  /* Seul l'hôte envoie le signal start_at quand les 2 sont prêts */
   if (!_isHost || _readyPlayers.size < 2) return;
-  const startAt = Date.now() + 3500;
+  /* startAt = maintenant + 5s + latence → les 2 appareils voient exactement 5,4,3,2,1,0 */
+  const startAt = Date.now() + 5000 + _estimatedLatency;
   _send({ type: 'start_at', startAt });
-  /* L'hôte s'applique aussi le countdown */
   import('./battle.js').then(({ receiveStartAt }) => receiveStartAt(startAt));
 }
 
@@ -347,12 +356,18 @@ export function cleanup() {
   _readyPlayers.clear();
   _roundAcks.clear();
   _ackRoundIndex = -1;
-  _subscribed = false;
   _msgQueue.length = 0;
 
   if (_channel) {
+    /* Envoyer disconnect AVANT de passer _subscribed à false */
     _send({ type: 'disconnect' });
-    setTimeout(() => { _channel?.unsubscribe(); _channel = null; }, 300);
+    setTimeout(() => {
+      _subscribed = false;
+      _channel?.unsubscribe();
+      _channel = null;
+    }, 400);
+  } else {
+    _subscribed = false;
   }
 
   if (_isHost && _code) {

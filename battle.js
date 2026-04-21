@@ -647,10 +647,15 @@ export function togglePause() {
 
 export function quitBattle() {
   if (!confirm('Abandonner ce combat ? La défaite sera enregistrée.')) return;
+  /* Notifier l'adversaire EN PREMIER — avant tout cleanup */
+  if (State.gameMode === 'online') State.onlineAdapter?.broadcastGameOver();
   clearAll();
   document.removeEventListener('visibilitychange', handleVisibility);
   State.players.filter(p => !p.isAI).forEach(p => { p.hp = 0; p.hasQuit = true; });
-  if (State.gameMode === 'online') State.onlineAdapter?.cleanup();
+  if (State.gameMode === 'online') {
+    /* Délai 500ms pour laisser le message partir avant de couper le canal */
+    setTimeout(() => State.onlineAdapter?.cleanup(), 500);
+  }
   finishBattle(true);
 }
 
@@ -932,7 +937,7 @@ function _onlineCountdownThenLoad(startAt, mode) {
   const tick = () => {
     const now  = Date.now();
     const ms   = startAt - now;
-    const secs = Math.max(0, Math.ceil(ms / 1000));
+    const secs = Math.min(5, Math.max(0, Math.ceil(ms / 1000))); /* toujours 5→0 */
 
     if (secs !== lastSec) {
       lastSec = secs;
@@ -1014,7 +1019,9 @@ function _onlineNextRound() {
 export function fireNextRoundFromHost(roundIndex) {
   clearTimeout(State._ackFallback);
   if (roundIndex !== State.roundIndex) return;
-  const nextAt = Date.now() + 3000;
+  /* 5s + latence → countdown toujours 5,4,3,2,1,0 sur les 2 appareils */
+  const latency = State.onlineAdapter?._getLatency?.() || 200;
+  const nextAt = Date.now() + 5000 + latency;
   State.onlineAdapter?.broadcastNextRound(State.roundIndex, nextAt);
   _onlineCountdownThenLoad(nextAt, 'formula');
 }
