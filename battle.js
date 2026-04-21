@@ -1154,6 +1154,8 @@ export function receiveOpponentAnswer(val, correct, roundIndex) {
 }
 
 export function receiveDisconnect(oppName) {
+  /* Ignorer si on n'est pas en mode online — évite les faux positifs en mode histoire/machine */
+  if (State.gameMode !== 'online') return;
   if (!State.roundActive && document.getElementById('screenBattle')?.classList.contains('hidden')) return;
   clearAll();
   const opp = State.players.find(p => p.isRemote);

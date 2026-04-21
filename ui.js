@@ -446,44 +446,183 @@ export function showComingSoon(f) {
 /* ══ PARTAGE DE RÉSULTAT ══ */
 export function shareResult(playerName, score, stars, isWin, storyLevel) {
   sfx.share();
-  const emoji = isWin ? '🏆' : '💀';
-  const starStr = '⭐'.repeat(stars || 0);
-  const modeStr = storyLevel ? `Niveau ${storyLevel}` : 'vs NEXUS';
-  /* URL dynamique — fonctionne sur GitHub Pages, Vercel, localhost, etc. */
   const gameUrl = window.location.origin + window.location.pathname.replace(/\/$/, '') + '/';
-  const text = `${emoji} LogicShot\n${playerName} — ${modeStr}\n${score.toLocaleString()} pts ${starStr}\nPeux-tu me battre ? 🧠⚡`;
 
-  if (navigator.share) {
-    navigator.share({
-      title: 'LogicShot — Jeu de calcul mental',
-      text,
-      url: gameUrl          /* lien cliquable vers le jeu */
-    }).catch(() => fallbackShare(text, gameUrl));
-  } else {
-    fallbackShare(text, gameUrl);
-  }
+  /* ── Générer une belle image de partage via canvas ── */
+  _buildShareImage(playerName, score, stars, isWin, storyLevel).then(dataUrl => {
+    const emoji  = isWin ? '🏆' : '💀';
+    const starStr = '⭐'.repeat(stars || 0);
+    const modeStr = storyLevel ? `Niveau ${storyLevel}` : 'vs NEXUS';
+    const text = `${emoji} LogicShot · ${modeStr}\n${playerName} · ${score > 0 ? score.toLocaleString() + ' pts' : ''} ${starStr}\nPeux-tu me battre ? 🧠⚡\n${gameUrl}`;
+
+    if (dataUrl && navigator.share && navigator.canShare) {
+      /* Tenter le partage avec image (Android Chrome, iOS 15+) */
+      fetch(dataUrl).then(r => r.blob()).then(blob => {
+        const file = new File([blob], 'logicshot.png', { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: 'LogicShot', text }).catch(() => _fallbackShare(text, dataUrl, gameUrl));
+        } else {
+          navigator.share({ title: 'LogicShot', text, url: gameUrl }).catch(() => _fallbackShare(text, dataUrl, gameUrl));
+        }
+      }).catch(() => _fallbackShare(text, dataUrl, gameUrl));
+    } else if (navigator.share) {
+      navigator.share({ title: 'LogicShot', text, url: gameUrl }).catch(() => _fallbackShare(text, dataUrl, gameUrl));
+    } else {
+      _fallbackShare(text, dataUrl, gameUrl);
+    }
+  });
 }
 
-function fallbackShare(text, url) {
-  const fullText = url ? `${text}\n${url}` : text;
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(fullText)
-      .then(() => showToast('📋 Score + lien copiés ! Colle dans tes messages 😄'));
-  } else {
-    document.getElementById('modalTitle').textContent = '📤 Partager';
-    document.getElementById('modalContent').innerHTML = `
-      <textarea style="width:100%;height:120px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;resize:none;">${fullText}</textarea>
-      <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">Copie et partage !</p>`;
-    openModal();
-  }
+function _buildShareImage(playerName, score, stars, isWin, storyLevel) {
+  return new Promise(resolve => {
+    try {
+      const W = 600, H = 340;
+      const canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      /* ── Fond dégradé ── */
+      const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+      const grad = ctx.createLinearGradient(0, 0, W, H);
+      grad.addColorStop(0, isDark ? '#0a0f1e' : '#f0f4ff');
+      grad.addColorStop(1, isDark ? '#111827' : '#e8eeff');
+      ctx.fillStyle = grad;
+      ctx.roundRect(0, 0, W, H, 20);
+      ctx.fill();
+
+      /* ── Bordure ── */
+      ctx.strokeStyle = isWin ? '#ffd700' : '#ff5555';
+      ctx.lineWidth = 3;
+      ctx.roundRect(2, 2, W - 4, H - 4, 18);
+      ctx.stroke();
+
+      /* ── Logo texte ── */
+      ctx.font = 'bold 15px "Space Grotesk", sans-serif';
+      ctx.fillStyle = isDark ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.3)';
+      ctx.fillText('LOGICSHOT', 28, 36);
+
+      /* ── Emoji résultat ── */
+      ctx.font = '64px serif';
+      ctx.fillText(isWin ? '🏆' : '💀', W - 100, 80);
+
+      /* ── Nom joueur ── */
+      ctx.font = 'bold 32px "Syne", "Space Grotesk", sans-serif';
+      ctx.fillStyle = isDark ? '#ffffff' : '#0a0f1e';
+      ctx.fillText(playerName.slice(0, 18), 28, 80);
+
+      /* ── Mode ── */
+      const modeStr = storyLevel ? `Niveau ${storyLevel} — Mode Histoire` : 'Vs NEXUS';
+      ctx.font = '15px "Space Grotesk", sans-serif';
+      ctx.fillStyle = isDark ? 'rgba(255,255,255,.5)' : 'rgba(0,0,30,.5)';
+      ctx.fillText(modeStr, 28, 108);
+
+      /* ── Ligne séparatrice ── */
+      ctx.strokeStyle = isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(28, 126); ctx.lineTo(W - 28, 126); ctx.stroke();
+
+      /* ── Score ── */
+      if (score > 0) {
+        ctx.font = 'bold 56px "Syne", sans-serif';
+        ctx.fillStyle = isWin ? '#ffd700' : '#ff5555';
+        ctx.fillText(score.toLocaleString(), 28, 198);
+        ctx.font = '16px "Space Grotesk", sans-serif';
+        ctx.fillStyle = isDark ? 'rgba(255,255,255,.4)' : 'rgba(0,0,0,.4)';
+        ctx.fillText('POINTS', 28, 220);
+      }
+
+      /* ── Étoiles ── */
+      if (stars > 0) {
+        ctx.font = '36px serif';
+        for (let i = 0; i < stars; i++) ctx.fillText('⭐', 28 + i * 42, 272);
+      }
+
+      /* ── Résultat badge ── */
+      const badgeText = isWin ? 'VICTOIRE' : 'DÉFAITE';
+      ctx.font = 'bold 13px "Syne", sans-serif';
+      const bw = ctx.measureText(badgeText).width + 24;
+      ctx.fillStyle = isWin ? 'rgba(255,215,0,.15)' : 'rgba(255,85,85,.15)';
+      ctx.beginPath(); ctx.roundRect(W - bw - 28, 150, bw, 30, 8); ctx.fill();
+      ctx.fillStyle = isWin ? '#ffd700' : '#ff5555';
+      ctx.fillText(badgeText, W - bw - 28 + 12, 170);
+
+      /* ── Call to action ── */
+      ctx.font = '13px "Space Grotesk", sans-serif';
+      ctx.fillStyle = isDark ? 'rgba(255,255,255,.3)' : 'rgba(0,0,0,.35)';
+      ctx.fillText('Peux-tu me battre ? 🧠⚡', 28, 310);
+      ctx.fillStyle = '#00b4ff';
+      ctx.fillText(gameUrl.replace('https://', ''), 28, 328);
+
+      resolve(canvas.toDataURL('image/png'));
+    } catch(e) {
+      resolve(null);
+    }
+  });
 }
 
-function showToast(msg) {
+function _fallbackShare(text, dataUrl, gameUrl) {
+  /* Afficher la belle carte + bouton copier */
+  const modal = document.getElementById('modal');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalContent = document.getElementById('modalContent');
+  if (!modal || !modalContent) {
+    /* Fallback ultime : copie presse-papiers */
+    navigator.clipboard?.writeText(text + '\n' + gameUrl).then(() =>
+      _showToast('📋 Score copié ! Colle dans tes messages 😄')
+    );
+    return;
+  }
+  if (modalTitle) modalTitle.textContent = '📤 Partager mon score';
+  modalContent.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+      ${dataUrl ? `<img src="${dataUrl}" style="width:100%;max-width:440px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.3);" alt="Score card">` : ''}
+      <div style="display:flex;gap:8px;width:100%;max-width:440px;">
+        <button onclick="navigator.clipboard?.writeText(${JSON.stringify(text)}).then(()=>window._shareToast())"
+          style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border);
+            background:var(--card);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer;">
+          📋 Copier le texte
+        </button>
+        ${dataUrl ? `<button onclick="window._downloadShareImg()"
+          style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--cyan);
+            background:transparent;color:var(--cyan);font-weight:700;font-size:13px;cursor:pointer;">
+          💾 Sauvegarder l'image
+        </button>` : ''}
+      </div>
+    </div>`;
+  window._shareImgDataUrl = dataUrl;
+  window._downloadShareImg = function() {
+    const a = document.createElement('a');
+    a.href = window._shareImgDataUrl;
+    a.download = 'logicshot-score.png';
+    a.click();
+  };
+  window._shareToast = function() { _showToast('📋 Score copié !'); };
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+/* ── Toast notification ── */
+function _showToast(msg) {
   const t = document.createElement('div');
   t.className = 'toast-notif';
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 3000);
+}
+
+/* ── roundRect polyfill pour anciens navigateurs ── */
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    this.beginPath();
+    this.moveTo(x + r, y);
+    this.arcTo(x + w, y, x + w, y + h, r);
+    this.arcTo(x + w, y + h, x, y + h, r);
+    this.arcTo(x, y + h, x, y, r);
+    this.arcTo(x, y, x + w, y, r);
+    this.closePath();
+    return this;
+  };
 }
 
 /* ══ STORY MAP ══ */
