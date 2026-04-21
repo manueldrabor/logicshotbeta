@@ -3,18 +3,18 @@
 ══════════════════════════════════════ */
 const CACHE_NAME = 'logicshot-v2';
 const ASSETS = [
-  '/logicshotbeta/',
-  '/logicshotbeta/index.html',
-  '/logicshotbeta/logicshot.css',
-  '/logicshotbeta/logicshot.js',
-  '/logicshotbeta/state.js',
-  '/logicshotbeta/audio.js',
-  '/logicshotbeta/ui.js',
-  '/logicshotbeta/formula.js',
-  '/logicshotbeta/battle.js',
-  '/logicshotbeta/online.js',
-  '/logicshotbeta/manifest.json',
-  '/logicshotbeta/Smooth_In_Heights_2026v2.mp3',
+  './',
+  './index.html',
+  './logicshot.css',
+  './logicshot.js',
+  './state.js',
+  './audio.js',
+  './ui.js',
+  './formula.js',
+  './battle.js',
+  './online.js',
+  './manifest.json',
+  './Smooth_In_Heights_2026v2.mp3',
   'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@700;800&family=Share+Tech+Mono&display=block'
 ];
 
@@ -37,6 +37,11 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  const url = e.request.url;
+  /* Ne jamais mettre en cache les appels analytics */
+  if (url.includes('google-analytics.com') ||
+      url.includes('googletagmanager.com') ||
+      url.includes('clarity.ms')) return;
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
