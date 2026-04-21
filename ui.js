@@ -449,22 +449,30 @@ export function shareResult(playerName, score, stars, isWin, storyLevel) {
   const emoji = isWin ? '🏆' : '💀';
   const starStr = '⭐'.repeat(stars || 0);
   const modeStr = storyLevel ? `Niveau ${storyLevel}` : 'vs NEXUS';
-  const text = `${emoji} LogicShot — ${modeStr}\n${playerName} · ${score.toLocaleString()} pts ${starStr}\n\nPeux-tu me battre ? 🧠⚡`;
+  /* URL dynamique — fonctionne sur GitHub Pages, Vercel, localhost, etc. */
+  const gameUrl = window.location.origin + window.location.pathname.replace(/\/$/, '') + '/';
+  const text = `${emoji} LogicShot\n${playerName} — ${modeStr}\n${score.toLocaleString()} pts ${starStr}\nPeux-tu me battre ? 🧠⚡`;
 
   if (navigator.share) {
-    navigator.share({ title: 'LogicShot', text }).catch(() => fallbackShare(text));
+    navigator.share({
+      title: 'LogicShot — Jeu de calcul mental',
+      text,
+      url: gameUrl          /* lien cliquable vers le jeu */
+    }).catch(() => fallbackShare(text, gameUrl));
   } else {
-    fallbackShare(text);
+    fallbackShare(text, gameUrl);
   }
 }
 
-function fallbackShare(text) {
+function fallbackShare(text, url) {
+  const fullText = url ? `${text}\n${url}` : text;
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(() => showToast('📋 Score copié dans le presse-papier !'));
+    navigator.clipboard.writeText(fullText)
+      .then(() => showToast('📋 Score + lien copiés ! Colle dans tes messages 😄'));
   } else {
     document.getElementById('modalTitle').textContent = '📤 Partager';
     document.getElementById('modalContent').innerHTML = `
-      <textarea style="width:100%;height:100px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;resize:none;">${text}</textarea>
+      <textarea style="width:100%;height:120px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;resize:none;">${fullText}</textarea>
       <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">Copie et partage !</p>`;
     openModal();
   }
