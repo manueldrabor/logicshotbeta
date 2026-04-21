@@ -178,7 +178,8 @@ function _setupAdapter() {
       }
     },
     broadcastNextRound   : (roundIndex, nextAt) =>
-      _send({ type: 'next_round', roundIndex, nextAt }),
+      /* Même correctif que start_at : ajuster pour l'horloge de l'invité */
+      _send({ type: 'next_round', roundIndex, nextAt: nextAt + _clockOffset }),
     broadcastGameOver    : () =>
       _send({ type: 'player_quit', name: _myName }),
     _getLatency          : () => _estimatedLatency,
@@ -323,7 +324,12 @@ function _checkBothReady() {
   _syncClock().then(() => {
     const rtt = _estimatedLatency * 2;   /* rtt = 2 × one-way */
     const startAt = Date.now() + 3000 + Math.min(rtt / 2, 500);
-    _send({ type: 'start_at', startAt });
+    /* _clockOffset = heure_invité − heure_hôte :
+       On envoie startAt + _clockOffset pour que l'invité, en calculant
+       (startAt_reçu − guest.Date.now()), obtienne exactement 3000 ms,
+       identique à l'hôte. Sans ce correctif, tout décalage d'horloge
+       entre les deux appareils se répercute sur le démarrage du timer. */
+    _send({ type: 'start_at', startAt: startAt + _clockOffset });
     import('./battle.js').then(({ receiveStartAt }) => receiveStartAt(startAt));
   });
 }

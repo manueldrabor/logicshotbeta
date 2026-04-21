@@ -453,22 +453,25 @@ export function shareResult(playerName, score, stars, isWin, storyLevel) {
     const emoji  = isWin ? '🏆' : '💀';
     const starStr = '⭐'.repeat(stars || 0);
     const modeStr = storyLevel ? `Niveau ${storyLevel}` : 'vs NEXUS';
-    const text = `${emoji} LogicShot · ${modeStr}\n${playerName} · ${score > 0 ? score.toLocaleString() + ' pts' : ''} ${starStr}\nPeux-tu me battre ? 🧠⚡\n${gameUrl}`;
+    /* shareText : sans URL — navigator.share ajoute url séparément (évite le doublon)
+       clipboardText : avec URL — pour le fallback copier-coller */
+    const shareText    = `${emoji} LogicShot · ${modeStr}\n${playerName} · ${score > 0 ? score.toLocaleString() + ' pts' : ''} ${starStr}\nPeux-tu me battre ? 🧠⚡`;
+    const clipboardText = shareText + '\n' + gameUrl;
 
     if (dataUrl && navigator.share && navigator.canShare) {
       /* Tenter le partage avec image (Android Chrome, iOS 15+) */
       fetch(dataUrl).then(r => r.blob()).then(blob => {
         const file = new File([blob], 'logicshot.png', { type: 'image/png' });
         if (navigator.canShare({ files: [file] })) {
-          navigator.share({ files: [file], title: 'LogicShot', text }).catch(() => _fallbackShare(text, dataUrl, gameUrl));
+          navigator.share({ files: [file], title: 'LogicShot', text: shareText, url: gameUrl }).catch(() => _fallbackShare(clipboardText, dataUrl, gameUrl));
         } else {
-          navigator.share({ title: 'LogicShot', text, url: gameUrl }).catch(() => _fallbackShare(text, dataUrl, gameUrl));
+          navigator.share({ title: 'LogicShot', text: shareText, url: gameUrl }).catch(() => _fallbackShare(clipboardText, dataUrl, gameUrl));
         }
-      }).catch(() => _fallbackShare(text, dataUrl, gameUrl));
+      }).catch(() => _fallbackShare(clipboardText, dataUrl, gameUrl));
     } else if (navigator.share) {
-      navigator.share({ title: 'LogicShot', text, url: gameUrl }).catch(() => _fallbackShare(text, dataUrl, gameUrl));
+      navigator.share({ title: 'LogicShot', text: shareText, url: gameUrl }).catch(() => _fallbackShare(clipboardText, dataUrl, gameUrl));
     } else {
-      _fallbackShare(text, dataUrl, gameUrl);
+      _fallbackShare(clipboardText, dataUrl, gameUrl);
     }
   });
 }

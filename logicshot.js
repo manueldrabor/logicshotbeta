@@ -57,6 +57,7 @@ window.startOnlineMode = startOnlineMode;
 window.startCreateRoom = startCreateRoom;
 window.startJoinRoom = startJoinRoom;
 window.copyRoomCode = copyRoomCode;
+window.shareRoomCode = shareRoomCode;
 window.cancelOnline = cancelOnline;
 
 /* ══ NARRATIFS ══ */
@@ -270,6 +271,7 @@ async function startCreateRoom() {
        <div class="room-code-display">${code}</div>`;
     document.getElementById('lobbyStatus').innerHTML = 'Partage ce code à ton adversaire !';
     document.getElementById('lobbyCopyBtn').style.display = '';
+    document.getElementById('lobbyShareBtn').style.display = '';
     showScreen('screenOnlineLobby');
   } catch(e) {
     alert('Erreur : ' + e.message);
@@ -319,6 +321,7 @@ async function startJoinRoom() {
     document.getElementById('lobbyCode').innerHTML = '';
     document.getElementById('lobbyStatus').innerHTML = '⏳ En attente du lancement…';
     document.getElementById('lobbyCopyBtn').style.display = 'none';
+    document.getElementById('lobbyShareBtn').style.display = 'none';
     showScreen('screenOnlineLobby');
   } catch(e) {
     alert('Erreur : ' + e.message);
@@ -333,6 +336,30 @@ function copyRoomCode() {
     const btn = document.getElementById('lobbyCopyBtn');
     if (btn) { btn.textContent = '✅ Copié !'; setTimeout(() => btn.textContent = '📋 Copier le code', 2000); }
   });
+}
+
+function shareRoomCode() {
+  if (!State.roomCode) return;
+  const code = State.roomCode;
+  const gameUrl = window.location.origin + window.location.pathname.replace(/\/$/, '') + '/';
+  const text = `⚔️ Rejoins-moi sur LogicShot !\nCode de la salle : ${code}\n🧠 Calcul mental en 1v1 — Peux-tu me battre ?\n${gameUrl}`;
+  if (navigator.share) {
+    navigator.share({
+      title: 'LogicShot — Rejoins ma salle !',
+      text,
+      url: gameUrl
+    }).catch(() => {
+      navigator.clipboard?.writeText(text).then(() => {
+        const btn = document.getElementById('lobbyShareBtn');
+        if (btn) { btn.textContent = '✅ Lien copié !'; setTimeout(() => btn.textContent = '📤 Partager le code', 2000); }
+      });
+    });
+  } else {
+    navigator.clipboard?.writeText(text).then(() => {
+      const btn = document.getElementById('lobbyShareBtn');
+      if (btn) { btn.textContent = '✅ Lien copié !'; setTimeout(() => btn.textContent = '📤 Partager le code', 2000); }
+    });
+  }
 }
 
 function cancelOnline() {

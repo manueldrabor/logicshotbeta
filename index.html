@@ -153,12 +153,11 @@
       </div>
     </button>
   </div>
-    <div class="splash-extras">
+  <div class="splash-extras" style="display:none" aria-hidden="true">
     <button class="extra-btn" onclick="showLeaderboard()" aria-label="Voir le classement">🏆 Classement</button>
     <button class="extra-btn" onclick="showShop()" aria-label="Ouvrir la boutique">🛒 Boutique</button>
     <button class="extra-btn" onclick="showDonation()" aria-label="Soutenir le jeu">❤️ Soutien</button>
     <button class="extra-btn" onclick="showTutorial()" aria-label="Voir le tutoriel">❓ Tutoriel</button>
-    <button class="extra-btn" onclick="showRecoveryCode()">🔑 Récupération</button>
   </div>
 </div>
 
@@ -388,14 +387,95 @@
       📋 Copier le code
     </button>
 
+    <button id="lobbyShareBtn" class="online-btn outline" onclick="shareRoomCode()" aria-label="Partager le code de la salle" style="display:none;">
+      📤 Partager le code
+    </button>
+
     <button class="btn-back" onclick="cancelOnline()" style="width:100%;text-align:center;margin-top:8px;padding:12px;" aria-label="Annuler et retour">✕ Annuler</button>
   </div>
 </div>
 
 </main>
 
+<!-- ══ PANNEAU RÉGLAGES ══ -->
+<div id="settingsPanel" role="dialog" aria-modal="true" aria-label="Réglages" style="
+  position:fixed;bottom:0;left:0;right:0;z-index:8500;
+  background:var(--card,#1a1a2e);
+  border-top:1.5px solid var(--border,rgba(255,255,255,.1));
+  border-radius:24px 24px 0 0;
+  padding:0 0 env(safe-area-inset-bottom,0px);
+  box-shadow:0 -8px 40px rgba(0,0,0,.45);
+  transform:translateY(100%);
+  transition:transform .32s cubic-bezier(.22,1,.36,1);
+  will-change:transform;
+">
+  <div style="display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px 10px;border-bottom:1px solid var(--border,rgba(255,255,255,.08));">
+    <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:15px;
+      letter-spacing:2px;color:var(--text,#fff);">⚙️ RÉGLAGES</span>
+    <button onclick="closeSettings()" aria-label="Fermer les réglages"
+      style="background:none;border:none;font-size:20px;color:var(--muted,#888);
+      cursor:pointer;padding:4px 8px;line-height:1;">✕</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px 20px;">
+    <button class="settings-item-btn" onclick="showLeaderboard();closeSettings()" aria-label="Voir le classement">
+      <span style="font-size:22px;">🏆</span><span>Classement</span>
+    </button>
+    <button class="settings-item-btn" onclick="showShop();closeSettings()" aria-label="Ouvrir la boutique">
+      <span style="font-size:22px;">🛒</span><span>Boutique</span>
+    </button>
+    <button class="settings-item-btn" onclick="showTutorial();closeSettings()" aria-label="Voir le tutoriel">
+      <span style="font-size:22px;">❓</span><span>Tutoriel</span>
+    </button>
+    <button class="settings-item-btn" onclick="showDonation();closeSettings()" aria-label="Soutenir le jeu">
+      <span style="font-size:22px;">❤️</span><span>Soutien</span>
+    </button>
+    <button class="settings-item-btn" onclick="window.showRecoveryCode?.();closeSettings()" aria-label="Code de récupération" style="grid-column:1/-1;">
+      <span style="font-size:22px;">🔑</span><span>Code de récupération</span>
+    </button>
+  </div>
+</div>
+<!-- Backdrop settings -->
+<div id="settingsBackdrop" onclick="closeSettings()" style="
+  position:fixed;inset:0;z-index:8400;background:rgba(0,0,0,.5);
+  opacity:0;pointer-events:none;transition:opacity .28s;"></div>
+
+<style>
+.settings-item-btn {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:5px;padding:14px 8px;
+  background:var(--surface,rgba(255,255,255,.04));
+  border:1.5px solid var(--border,rgba(255,255,255,.1));
+  border-radius:14px;cursor:pointer;
+  font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;
+  color:var(--text,#fff);letter-spacing:.5px;
+  transition:background .15s,transform .1s;
+  -webkit-tap-highlight-color:transparent;
+}
+.settings-item-btn:active { transform:scale(.96); background:rgba(0,180,255,.1); }
+</style>
+
+<script>
+function openSettings() {
+  document.getElementById('settingsPanel').style.transform = 'translateY(0)';
+  const bd = document.getElementById('settingsBackdrop');
+  bd.style.pointerEvents = 'auto';
+  bd.style.opacity = '1';
+}
+function closeSettings() {
+  document.getElementById('settingsPanel').style.transform = 'translateY(100%)';
+  const bd = document.getElementById('settingsBackdrop');
+  bd.style.opacity = '0';
+  setTimeout(() => { bd.style.pointerEvents = 'none'; }, 300);
+}
+window.openSettings = openSettings;
+window.closeSettings = closeSettings;
+</script>
+
 <!-- ══ BARRE GLOBALE ══ -->
 <nav class="global-bar" aria-label="Contrôles globaux">
+  <button class="gb-btn" id="settingsBtn" onclick="openSettings()" aria-label="Ouvrir les réglages" style="font-size:18px;padding:8px 12px;">⚙️</button>
+  <div class="gb-sep" aria-hidden="true"></div>
   <button class="gb-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Basculer le thème sombre ou clair">🌙 Mode sombre</button>
   <div class="gb-sep" aria-hidden="true"></div>
   <button class="gb-btn" id="muteBtn" onclick="toggleMute()" aria-label="Activer ou couper le son">🔊 Son</button>

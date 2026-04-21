@@ -55,7 +55,7 @@ function getAIProfile(round) {
 
 /* ── Helpers ── */
 export function storyLevelToDiff(l) { return l <= 5 ? 'relax' : l <= 10 ? 'easy' : l <= 15 ? 'medium' : 'hard'; }
-export function isRelaxMode() { return State.aiDifficulty === 'relax'; }
+export function isRelaxMode() { return State.aiDifficulty === 'relax' && State.gameMode !== 'online'; }
 
 const SPRITES = ['🥷'];
 function pickSprite() { return SPRITES[Math.floor(Math.random() * SPRITES.length)]; }
