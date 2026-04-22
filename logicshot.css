@@ -920,7 +920,7 @@ body::before{
   .formula-big { font-size: clamp(36px, 3.5vw, 64px); }
 
   .story-grid {
-    max-width: 600px;
+    max-width: 648px;
     gap: 12px;
   }
   .story-level { font-size: 30px; }
