@@ -1671,7 +1671,13 @@ button:focus-visible {
 /* ══════════════════════════════════════
    SURVIE INFINIE
 ══════════════════════════════════════ */
-#screenSurvival { overflow: hidden; }
+#screenSurvival {
+  overflow: hidden;
+  /* Override .screen defaults qui cassent le layout plein écran */
+  padding: 0 !important;
+  justify-content: flex-start !important;
+  min-height: 100dvh !important;
+}
 
 #svArena {
   display: flex;
@@ -1798,7 +1804,7 @@ button:focus-visible {
   min-height: 54px;
 }
 .sv-submit-btn {
-  width: 30%;
+  width: 40%;
   padding: 10px 6px;
   background: linear-gradient(135deg, var(--blue-neon), #0088ee);
   color: #fff;

@@ -81,6 +81,7 @@ window.svNeg    = svNeg;
 window.svDel    = svDel;
 window.svSubmit = svSubmit;
 window.svShare  = svShare;
+window.svQuit   = svQuit;
 
 /* ══ NARRATIFS ══ */
 const NARRATIVES = {
