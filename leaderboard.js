@@ -124,12 +124,22 @@ export async function updateElo(name, eloDelta, won) {
       `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=id,elo,wins`
     );
     if (rows.length === 0) {
-      /* Première fois pour ce device — insert */
+      /* Première sync en ligne — vérifier si le nom est libre */
+      const existing = await supaFetch(
+        `leaderboard?name=eq.${encodeURIComponent(name)}&select=device_id`
+      );
+      const nameTaken = existing.length > 0 && existing[0].device_id !== deviceId;
+      const finalName = nameTaken ? `${name}_${deviceId.slice(0, 4)}` : name;
+      if (nameTaken) {
+        /* Sauvegarder le nouveau nom localement et notifier */
+        Save.savePlayerName(finalName);
+        console.warn(`Nom "${name}" pris en ligne → renommé "${finalName}" automatiquement`);
+      }
       await supaFetch('leaderboard', {
         method: 'POST',
         body: JSON.stringify({
           device_id: deviceId,
-          name,
+          name: finalName,
           elo: Math.max(800, 1000 + eloDelta),
           wins: won ? 1 : 0
         })
@@ -140,7 +150,7 @@ export async function updateElo(name, eloDelta, won) {
         method: 'PATCH',
         headers: { Prefer: '' },
         body: JSON.stringify({
-          name,                                          // nom peut avoir changé
+          name,
           elo: Math.max(800, row.elo + eloDelta),
           wins: (row.wins || 0) + (won ? 1 : 0),
           xp:   parseInt(localStorage.getItem('ls_xp') || '0'),
@@ -218,7 +228,8 @@ export async function syncProgressToCloud() {
     const rows = await supaFetch(
       `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=id`
     );
-    if (rows.length === 0) return; /* pas encore de ligne → updateElo créera */
+    /* Pas encore de ligne en ligne → updateElo créera la ligne au prochain duel */
+    if (rows.length === 0) return;
     await supaFetch(`leaderboard?id=eq.${rows[0].id}`, {
       method: 'PATCH',
       headers: { Prefer: '' },

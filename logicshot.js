@@ -150,35 +150,26 @@ async function proceedMatchmaking() {
     const { reserveName } = await import('./leaderboard.js');
     const name = await reserveName(raw);
 
-    /* Informer si le nom a été modifié */
-    if (name !== raw) {
-      const inp = document.getElementById('mmInp0');
-      if (inp) inp.value = name;
-      /* Petit badge d'avertissement */
-      const box = document.querySelector('#screenMatchmaking .mm-box');
-      if (box) {
-        const warn = document.createElement('div');
-        warn.style.cssText = 'font-size:11px;color:var(--gold);text-align:center;margin-top:-8px;margin-bottom:4px;';
-        warn.textContent = `⚠️ "${raw}" déjà pris → tu t'appelles "${name}"`;
-        const existing = box.querySelector('.name-warn');
-        if (existing) existing.remove();
-        warn.className = 'name-warn';
-        box.insertBefore(warn, box.querySelector('.res-btn'));
-        /* Laisser lire 1.5 s puis continuer */
-        await new Promise(r => setTimeout(r, 1500));
-      }
-    }
-
     State.oathNames = [name];
     if (State.gameMode === 'story') openStoryMap();
     else showScreen('screenOath');
   } catch(e) {
-    /* Fallback silencieux si offline */
-    const name = raw;
-    Save.savePlayerName(name);
-    State.oathNames = [name];
-    if (State.gameMode === 'story') openStoryMap();
-    else showScreen('screenOath');
+    if (e.message === 'NAME_TAKEN') {
+      const inp = document.getElementById('mmInp0');
+      if (inp) { inp.value = ''; inp.focus(); inp.classList.add('wrong'); setTimeout(() => inp.classList.remove('wrong'), 700); }
+      const box = document.querySelector('#screenMatchmaking .mm-box');
+      if (box) {
+        let warn = box.querySelector('.name-warn');
+        if (!warn) { warn = document.createElement('div'); warn.className = 'name-warn'; warn.style.cssText = 'font-size:12px;color:var(--red);text-align:center;margin-top:-8px;margin-bottom:4px;font-weight:700;'; box.insertBefore(warn, box.querySelector('.res-btn')); }
+        warn.textContent = `❌ "${raw}" est déjà pris — choisis un autre pseudo`;
+      }
+    } else {
+      /* Fallback silencieux si offline */
+      Save.savePlayerName(raw);
+      State.oathNames = [raw];
+      if (State.gameMode === 'story') openStoryMap();
+      else showScreen('screenOath');
+    }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '⚔️ CONTINUER'; }
   }
@@ -232,9 +223,8 @@ function startOnlineMode() {
   const saved = Save.getSavedName();
   const inp = document.getElementById('onlineNameInput');
   if (inp && saved) inp.value = saved;
+  showScreen('screenOnlineMenu');
   stopMenuMusic();
-  window._oathCallback = () => showScreen('screenOnlineMenu');
-  showScreen('screenOath');
 }
 
 function showOnlineError(msg) {
@@ -271,7 +261,6 @@ async function startCreateRoom() {
   try {
     const { reserveName } = await import('./leaderboard.js');
     const name = await reserveName(raw);
-    if (inp && name !== raw) inp.value = name;
 
     State.oathNames = [name];
     if (btn) btn.textContent = '⏳ Création de la salle…';
@@ -288,7 +277,12 @@ async function startCreateRoom() {
     document.getElementById('lobbyShareBtn').style.display = '';
     showScreen('screenOnlineLobby');
   } catch(e) {
-    alert('Erreur : ' + e.message);
+    if (e.message === 'NAME_TAKEN') {
+      showOnlineError(`❌ "${raw}" est déjà pris — choisis un autre pseudo`);
+      if (inp) { inp.value = ''; inp.focus(); }
+    } else {
+      alert('Erreur : ' + e.message);
+    }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '🏠 Créer une salle'; }
   }
@@ -323,7 +317,6 @@ async function startJoinRoom() {
   try {
     const { reserveName } = await import('./leaderboard.js');
     const name = await reserveName(raw);
-    if (nameInp && name !== raw) nameInp.value = name;
 
     State.oathNames = [name];
     if (btn) btn.textContent = '⏳ Connexion…';
@@ -338,7 +331,12 @@ async function startJoinRoom() {
     document.getElementById('lobbyShareBtn').style.display = 'none';
     showScreen('screenOnlineLobby');
   } catch(e) {
-    alert('Erreur : ' + e.message);
+    if (e.message === 'NAME_TAKEN') {
+      showOnlineError(`❌ "${raw}" est déjà pris — choisis un autre pseudo`);
+      if (nameInp) { nameInp.value = ''; nameInp.focus(); }
+    } else {
+      alert('Erreur : ' + e.message);
+    }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '🚪 Rejoindre'; }
   }

@@ -105,12 +105,6 @@ export async function startSurvival() {
   /* Charger le best score en ligne avant de commencer */
   _bestScore = await _loadBestOnline();
 
-  /* ── Reset UI ── */
-  const goBox = document.getElementById('svGameOverBox');
-  const qBox  = document.getElementById('svQuestionBox');
-  if (goBox) goBox.style.display = 'none';
-  if (qBox)  qBox.style.display  = 'flex';
-
   sfx.battleStart?.();
   showScreen('screenSurvival');
   _nextQuestion();
@@ -175,17 +169,23 @@ function _onAnswer() {
     _combo    = 0;
     _timeBank = Math.max(0, _timeBank - TIME_WRONG);
     sfx.wrong?.();
-    _showFeedback(`❌ = ${_round.answer} · −${TIME_WRONG}s`, '#ff4444');
+    /* Afficher la bonne réponse clairement */
+    _showFeedback(`❌ Réponse : ${_round.answer} · −${TIME_WRONG}s`, '#ff4444');
+    const fa = document.getElementById('svInput');
+    if (fa) { fa.textContent = `= ${_round.answer}`; fa.style.color = 'var(--gold)'; }
   }
 
   _updateBank();
   _updateScore();
-  _updateInput();
 
+  /* Bonne réponse → 1.1s · Mauvaise réponse → 5s pour apprendre */
+  const delay = correct ? 1100 : 5000;
   setTimeout(() => {
+    const fa = document.getElementById('svInput');
+    if (fa) fa.style.color = '';
     if (_timeBank <= 0) { _gameOver(); return; }
     _nextQuestion();
-  }, 1100);
+  }, delay);
 }
 
 /* ══ TIMEOUT ══ */
