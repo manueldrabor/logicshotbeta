@@ -49,6 +49,7 @@ export const State = {
   /* ── Flags FX ── */
   speedBonusActive: false,
   criticalActive: false,
+  waitingForAbsent: false,   /* timer gelé en attente du retour d'un joueur absent (online) */
 
   /* ── Narratif ── */
   _narrativeAfterCb: null,
@@ -87,6 +88,7 @@ export const State = {
     this.isPaused = false;
     this.speedBonusActive = false;
     this.criticalActive = false;
+    this.waitingForAbsent = false;
     this.blindRevealed = false;
     this.orderOptions = [];
     this.npVals = {};

@@ -1769,7 +1769,7 @@ button:focus-visible {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 0;
+  padding: 0 0 54px; /* compense la global-bar fixe en bas */
   max-width: 480px;
   margin: 0 auto;
   width: 100%;
@@ -1951,8 +1951,8 @@ button:focus-visible {
 
 /* Bouton quitter */
 .sv-quit-btn {
-  width: calc(100% - 40px);
-  margin: 6px 20px 10px;
+  width: 100%;
+  margin: 4px 0 0;
   padding: 10px;
   background: none;
   border: 1.5px solid var(--border);

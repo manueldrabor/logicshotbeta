@@ -161,6 +161,8 @@ function _setupAdapter() {
       _send({ type: 'super_used', superType: type }),
     broadcastAbsentPenalty: (newHp) =>
       _send({ type: 'absent_penalty', newHp }),
+    broadcastPlayerReturned: () =>
+      _send({ type: 'player_returned' }),
     broadcastReady       : () => {
       _readyPlayers.add(_myName);
       _send({ type: 'player_ready', name: _myName });
@@ -257,6 +259,7 @@ function _handleMsg(data) {
     case 'round_ack':       if (_isHost)  _onRoundAck(data);           break;
     case 'timer_sync':      if (!_isHost) _onTimerSync(data);          break;
     case 'absent_penalty':  _onOpponentAbsent(data.newHp);             break;
+    case 'player_returned': _onOpponentReturned();                      break;
     case 'player_quit':     _onOpponentQuit(data.name);                break;
     case 'match_result':   _onMatchResult(data);                    break;
     case 'disconnect':      _onDisconnect();                           break;
@@ -443,6 +446,13 @@ function _onOpponentQuit(name) {
 function _onOpponentAbsent(newHp) {
   import('./battle.js').then(({ receiveOpponentAbsent }) =>
     receiveOpponentAbsent(newHp)
+  );
+}
+
+/* ── Adversaire est revenu ── */
+function _onOpponentReturned() {
+  import('./battle.js').then(({ receiveOpponentReturned }) =>
+    receiveOpponentReturned()
   );
 }
 

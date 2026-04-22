@@ -116,29 +116,55 @@ export async function updateElo(name, eloDelta, won) {
       `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=id,elo,wins`
     );
     if (rows.length === 0) {
-      /* Première sync en ligne (joueur était hors ligne lors de l'inscription).
-         Vérifier que le nom n'a pas été pris par un autre device entre-temps. */
-      /* Vérifier que le nom n'a pas été pris pendant la session hors ligne */
+      /* Pas encore de ligne pour ce device_id.
+         Vérifier d'abord s'il existe une ligne avec le même nom (device_id NULL ou autre)
+         → dans ce cas, on PATCH par nom plutôt que d'insérer. */
       let finalName = name;
+
+      /* Chercher row par nom pour récupérer un éventuel id existant */
       const existingName = await supaFetch(
-        `leaderboard?name=eq.${encodeURIComponent(name)}&select=device_id`
+        `leaderboard?name=eq.${encodeURIComponent(name)}&select=id,device_id,elo,wins`
       );
-      if (existingName.length > 0 && existingName[0].device_id !== deviceId) {
-        /* Nom pris → suffixe automatique (cas hors ligne uniquement) */
-        let suffix = 2;
-        while (suffix <= 99) {
-          const candidate = `${name}#${suffix}`;
-          const check = await supaFetch(
-            `leaderboard?name=eq.${encodeURIComponent(candidate)}&select=id`
-          );
-          if (check.length === 0) { finalName = candidate; break; }
-          suffix++;
+
+      if (existingName.length > 0) {
+        const existing = existingName[0];
+        if (!existing.device_id || existing.device_id === deviceId) {
+          /* Row orpheline (device_id NULL) ou déjà la nôtre → réclamer + mettre à jour */
+          await supaFetch(`leaderboard?id=eq.${existing.id}`, {
+            method: 'PATCH',
+            headers: { Prefer: '' },
+            body: JSON.stringify({
+              device_id: deviceId,
+              name: finalName,
+              elo:  Math.max(800, (existing.elo || 1000) + eloDelta),
+              wins: (existing.wins || 0) + (won ? 1 : 0),
+              xp:   parseInt(localStorage.getItem('ls_xp') || '0'),
+              beaten: localStorage.getItem('ls_beaten') || '[]',
+              stars:  localStorage.getItem('ls_stars')  || '{}',
+              updated_at: new Date().toISOString()
+            })
+          });
+          return;
+        } else {
+          /* Nom pris par un autre device → suffixe automatique */
+          let suffix = 2;
+          while (suffix <= 99) {
+            const candidate = `${name}#${suffix}`;
+            const check = await supaFetch(
+              `leaderboard?name=eq.${encodeURIComponent(candidate)}&select=id`
+            );
+            if (check.length === 0) { finalName = candidate; break; }
+            suffix++;
+          }
+          Save.savePlayerName(finalName);
+          console.warn(`Nom "${name}" pris hors ligne → renommé "${finalName}" automatiquement`);
         }
-        Save.savePlayerName(finalName);
-        console.warn(`Nom "${name}" pris hors ligne → renommé "${finalName}" automatiquement`);
       }
+
+      /* INSERT avec upsert pour absorber toute race condition résiduelle */
       await supaFetch('leaderboard', {
         method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
         body: JSON.stringify({
           device_id: deviceId,
           name: finalName,
