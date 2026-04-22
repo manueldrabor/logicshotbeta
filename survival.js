@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════
    survival.js — Mode Survie Infinie
-   Bonne réponse → +15s · Erreur → -3s
+   Bonne réponse → +10s · Erreur → -7s
    Score x combo · Best score Supabase
 ══════════════════════════════════════ */
 import { State, Save } from './state.js';
@@ -63,8 +63,8 @@ async function _saveBestOnline(score) {
 
 /* ══ CONSTANTES ══ */
 const TIME_START   = 30;
-const TIME_CORRECT = 15;
-const TIME_WRONG   = 10;
+const TIME_CORRECT = 10;
+const TIME_WRONG   = 7;
 const TIME_CAP     = 60;
 const SCORE_BASE   = 100;
 
