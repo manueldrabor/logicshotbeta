@@ -15,7 +15,7 @@ import {
   submitAnswer, tapOrderBtn, npPress, npNeg, npDel, revealBlind,
   activateSuper, storyLevelToDiff, startAbsentCheck
 } from './battle.js';
-import { startSurvival, svPress, svNeg, svDel, svSubmit, svShare } from './survival.js';
+import { startSurvival, svPress, svNeg, svDel, svSubmit, svShare, svQuit } from './survival.js';
 
 /* ══ EXPOSE GLOBALS (pour les onclick inline restants) ══ */
 window._goSplash = goSplash;

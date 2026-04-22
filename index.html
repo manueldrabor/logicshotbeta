@@ -445,28 +445,32 @@
 
       <div id="svFormula">?</div>
 
-      <!-- Réponse + Valider -->
-      <div class="sv-answer-row">
-        <div id="svInput">?</div>
-        <button class="sv-submit-btn" onclick="window.svSubmit()">✅ RÉPONSE</button>
-      </div>
-
       <div id="svFeedback"></div>
 
-      <!-- Numpad -->
-      <div class="sv-numpad">
-        <button class="sv-np-btn" onclick="window.svPress('7')">7</button>
-        <button class="sv-np-btn" onclick="window.svPress('8')">8</button>
-        <button class="sv-np-btn" onclick="window.svPress('9')">9</button>
-        <button class="sv-np-btn" onclick="window.svPress('4')">4</button>
-        <button class="sv-np-btn" onclick="window.svPress('5')">5</button>
-        <button class="sv-np-btn" onclick="window.svPress('6')">6</button>
-        <button class="sv-np-btn" onclick="window.svPress('1')">1</button>
-        <button class="sv-np-btn" onclick="window.svPress('2')">2</button>
-        <button class="sv-np-btn" onclick="window.svPress('3')">3</button>
-        <button class="sv-np-btn muted" onclick="window.svNeg()">+/−</button>
-        <button class="sv-np-btn" onclick="window.svPress('0')">0</button>
-        <button class="sv-np-btn muted" onclick="window.svDel()">⌫</button>
+      <!-- Réponse + Valider — même UI que le mode VS Machine -->
+      <div class="answer-zone" id="svAnswerZone">
+        <div class="player-answer-row">
+          <input type="text" inputmode="none" readonly class="ans-input" id="svInput" placeholder="?" autocomplete="off" aria-label="Ta réponse">
+          <button class="fire-btn" onclick="window.svSubmit()" aria-label="Valider la réponse">🎯 RÉPONSE</button>
+        </div>
+      </div>
+
+      <!-- Numpad — même UI que le mode VS Machine -->
+      <div id="svNumpadZone">
+        <div class="numpad" role="group" aria-label="Clavier numérique">
+          <button class="numpad-btn" aria-label="7" onclick="window.svPress('7')">7</button>
+          <button class="numpad-btn" aria-label="8" onclick="window.svPress('8')">8</button>
+          <button class="numpad-btn" aria-label="9" onclick="window.svPress('9')">9</button>
+          <button class="numpad-btn" aria-label="4" onclick="window.svPress('4')">4</button>
+          <button class="numpad-btn" aria-label="5" onclick="window.svPress('5')">5</button>
+          <button class="numpad-btn" aria-label="6" onclick="window.svPress('6')">6</button>
+          <button class="numpad-btn" aria-label="1" onclick="window.svPress('1')">1</button>
+          <button class="numpad-btn" aria-label="2" onclick="window.svPress('2')">2</button>
+          <button class="numpad-btn" aria-label="3" onclick="window.svPress('3')">3</button>
+          <button class="numpad-btn neg" aria-label="Inverser le signe" onclick="window.svNeg()">±</button>
+          <button class="numpad-btn" aria-label="0" onclick="window.svPress('0')">0</button>
+          <button class="numpad-btn del" aria-label="Supprimer" onclick="window.svDel()">⌫</button>
+        </div>
       </div>
 
       <button class="sv-quit-btn" onclick="window.svQuit()">🚪 Quitter</button>

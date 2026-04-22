@@ -189,7 +189,7 @@ function _onAnswer() {
     _showFeedback(`❌ Réponse : ${_round.answer} · −${TIME_WRONG}s`, '#ff4444');
     /* Afficher la bonne réponse en doré pendant 5s */
     const fa = document.getElementById('svInput');
-    if (fa) { fa.textContent = `= ${_round.answer}`; fa.style.color = 'var(--gold)'; }
+    if (fa) { fa.value = `= ${_round.answer}`; fa.style.color = 'var(--gold)'; }
     _updateBank();
     _updateScore();
     setTimeout(() => {
@@ -255,6 +255,12 @@ export function svQuit() {
   _gameOver();
 }
 
+export function svQuit() {
+  clearInterval(_timerIv);
+  _active = false;
+  _gameOver();
+}
+
 /* ══ RENDER ══ */
 function _renderQuestion() {
   const diffLabel = { easy: 'FACILE', medium: 'MOYEN', hard: 'DIFFICILE' };
@@ -263,7 +269,7 @@ function _renderQuestion() {
   if (!el('svFormula')) return;
 
   el('svFormula').textContent  = _round.formula;
-  el('svInput').textContent    = '?';
+  el('svInput').value          = '';
   el('svInput').style.color    = '';
   el('svFeedback').textContent = '';
   el('svDiff').textContent     = diffLabel[_round.difficulty] || '';
@@ -294,7 +300,7 @@ function _updateScore() {
 
 function _updateInput() {
   const el = document.getElementById('svInput');
-  if (el) el.textContent = _inputVal || '?';
+  if (el) el.value = _inputVal || '';
 }
 
 function _showFeedback(msg, color) {
