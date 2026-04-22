@@ -255,12 +255,6 @@ export function svQuit() {
   _gameOver();
 }
 
-export function svQuit() {
-  clearInterval(_timerIv);
-  _active = false;
-  _gameOver();
-}
-
 /* ══ RENDER ══ */
 function _renderQuestion() {
   const diffLabel = { easy: 'FACILE', medium: 'MOYEN', hard: 'DIFFICILE' };
