@@ -113,6 +113,7 @@ const NARRATIVES = {
 /* ══ NAVIGATE ══ */
 function goSplash() {
   clearAll();
+  _nameSetupCallback = null; /* éviter callback périmé après récupération ou annulation */
   document.removeEventListener('visibilitychange', () => {});
   showScreen('screenSplash');
   resumeMenuMusic();

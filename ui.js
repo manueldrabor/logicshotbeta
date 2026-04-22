@@ -6,31 +6,13 @@ import { sfx } from './audio.js';
 
 /* ══ NAVIGATION ══ */
 const ALL_SCREENS = [
-  'screenSplash','screenMatchmaking','screenDiffSelect','screenStory',
+  'screenSplash','screenNameSetup','screenMatchmaking','screenDiffSelect','screenStory',
   'screenNarrative','screenOath','screenBattle','screenResults','screenTutorial',
   'screenOnlineMenu','screenOnlineLobby','screenSurvival'
 ];
-function setParticlesOpacity(value) {
-  const canvas = document.getElementById('cyberCanvas');
-  if (!canvas) return;
-  canvas.style.transition = 'opacity 220ms ease';
-  canvas.style.opacity = value;
-}
-
 export function showScreen(id) {
   ALL_SCREENS.forEach(s => document.getElementById(s)?.classList.add('hidden'));
   document.getElementById(id)?.classList.remove('hidden');
-
-  const battleScreens = ['screenBattle', 'screenSurvival'];
-  const lowParticlesScreens = ['screenNarrative', 'screenOath', 'screenResults'];
-
-  if (battleScreens.includes(id)) {
-    setParticlesOpacity('0.18');
-  } else if (lowParticlesScreens.includes(id)) {
-    setParticlesOpacity('0.28');
-  } else {
-    setParticlesOpacity('');
-  }
 }
 
 /* ══ THÈME ══ */
