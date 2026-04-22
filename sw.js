@@ -13,6 +13,7 @@ const ASSETS = [
   './formula.js',
   './battle.js',
   './online.js',
+  './survival.js',
   './manifest.json',
   './Smooth_In_Heights_2026v2.mp3',
   'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@700;800&family=Share+Tech+Mono&display=block'
