@@ -682,7 +682,7 @@ export function togglePause() {
 export function quitBattle() {
   if (!confirm('Abandonner ce combat ? La défaite sera enregistrée.')) return;
   /* Notifier l'adversaire EN PREMIER — avant tout cleanup */
-  if (State.gameMode === 'online') State.onlineAdapter?.broadcastGameOver();
+  if (State.gameMode === 'online') State.onlineAdapter?.broadcastQuit();
   clearAll();
   document.removeEventListener('visibilitychange', handleVisibility);
   State.players.filter(p => !p.isAI && !p.isRemote).forEach(p => { p.hp = 0; p.hasQuit = true; });
@@ -728,15 +728,37 @@ function handleVisibility() {
 
 /* ══ FINISH ══ */
 export function finishBattle(forceQuit = false) {
-  /* FIX : guard anti-double-appel (peut arriver si les 2 joueurs terminent
-     le dernier round simultanément en online, ou via receiveOpponentQuit + timer) */
+  /* FIX : guard anti-double-appel */
   if (_battleFinished) return;
+
+  /* ── ONLINE : l'invité ne décide plus seul ── */
+  if (State.gameMode === 'online' && !State.isHost && !forceQuit) {
+    _battleFinished = true;
+    clearAll();
+    showFeedback('⏳ Synchronisation du résultat…', 'draw');
+    return;
+  }
+
   _battleFinished = true;
 
   clearAll();
   document.removeEventListener('visibilitychange', handleVisibility);
   const sorted = [...State.players].sort((a, b) => b.hp - a.hp);
   const winner = sorted[0];
+  /* ── ONLINE : seul l’hôte envoie le résultat officiel ── */
+if (State.gameMode === 'online' && State.isHost && !forceQuit) {
+  const localP = State.players.find(p => !p.isAI && !p.isRemote);
+  const opp    = State.players.find(p => p.isRemote);
+
+  State.onlineAdapter?.broadcastMatchResult({
+    localHp : localP ? localP.hp : 0,
+    remoteHp: opp ? opp.hp : 0,
+    winnerId: winner?.id || null,
+    message : winner?.isRemote
+      ? `${winner.name} gagne`
+      : `${winner?.name || 'Joueur'} gagne`
+  });
+}
   const humanWon = !winner.isAI && !winner.isRemote && winner.hp > 0;
   let stars = 0;
   if (State.gameMode === 'story' && humanWon) {
@@ -791,7 +813,6 @@ export function finishBattle(forceQuit = false) {
   /* ── Online : stopper la sync périodique + broadcast fin + nettoyage ── */
   if (State.gameMode === 'online') {
     clearPeriodicSync();
-    State.onlineAdapter?.broadcastGameOver();
     setTimeout(() => State.onlineAdapter?.cleanup(), 3000);
   }
 
@@ -908,7 +929,26 @@ let _battleFinished = false;
    ONLINE MODE — fonctions exportées
    appelées par online.js via import()
 ══════════════════════════════════════ */
+export function receiveMatchResult(data) {
+  if (State.gameMode !== 'online') return;
+  if (State.isHost) return; // l'hôte n'a pas besoin de recevoir son propre verdict
 
+  const localP = State.players.find(p => !p.isAI && !p.isRemote);
+  const opp    = State.players.find(p => p.isRemote);
+
+  if (localP && typeof data.localHp === 'number') {
+    localP.hp = data.localHp;
+    updateHP(localP);
+  }
+  if (opp && typeof data.remoteHp === 'number') {
+    opp.hp = data.remoteHp;
+    updateHP(opp);
+  }
+
+  clearAll();
+  showFeedback(data.message || 'Fin du combat', 'ok');
+  setTimeout(() => finishBattle(false), 1200);
+}
 export function beginOnlineBattle(myName, opponentName, rounds) {
   _battleFinished = false; /* FIX : reset du guard pour cette nouvelle partie */
   pauseMenuMusicForBattle();

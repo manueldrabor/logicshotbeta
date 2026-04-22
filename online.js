@@ -184,10 +184,11 @@ function _setupAdapter() {
       }
     },
     broadcastNextRound   : (roundIndex, nextAt) =>
-      /* Même correctif que start_at : ajuster pour l'horloge de l'invité */
       _send({ type: 'next_round', roundIndex, nextAt: nextAt + _clockOffset }),
-    broadcastGameOver    : () =>
+    broadcastQuit        : () =>
       _send({ type: 'player_quit', name: _myName }),
+    broadcastMatchResult : (payload) =>
+      _send({ type: 'match_result', ...payload }),
     _getLatency          : () => _estimatedLatency,
     _syncClock           : () => _syncClock(),
     _getClockOffset      : () => _clockOffset,
@@ -257,6 +258,7 @@ function _handleMsg(data) {
     case 'timer_sync':      if (!_isHost) _onTimerSync(data);          break;
     case 'absent_penalty':  _onOpponentAbsent(data.newHp);             break;
     case 'player_quit':     _onOpponentQuit(data.name);                break;
+    case 'match_result':   _onMatchResult(data);                    break;
     case 'disconnect':      _onDisconnect();                           break;
   }
 }
@@ -452,7 +454,11 @@ function _onDisconnect() {
   if (!battleVisible) return;
   import('./battle.js').then(({ receiveDisconnect }) => receiveDisconnect(_oppName));
 }
-
+function _onMatchResult(data) {
+  import('./battle.js').then(({ receiveMatchResult }) =>
+    receiveMatchResult(data)
+  );
+}
 /* ══════════════════════════════════════
    NETTOYAGE
 ══════════════════════════════════════ */
