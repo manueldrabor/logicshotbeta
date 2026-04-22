@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="LogicShot"/>
-<title>LogicShot vBêta</title>
+<title>LogicShot</title>
 <link rel="manifest" href="manifest.json"/>
 <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
 <link rel="apple-touch-icon" href="favicon.svg"/>
@@ -115,7 +115,7 @@
     </div>
   </div>
   <div class="splash-sub" aria-hidden="true">Calcule · Tire · Survie</div>
-  <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:8px;margin-top:-18px;">vBêta</div>
+
 
   <!-- XP Bar -->
   <div class="xp-bar-wrap" role="progressbar" aria-label="Barre d'expérience">
@@ -146,6 +146,13 @@
       <div class="mode-info">
         <div class="mode-title">1 vs 1 EN LIGNE</div>
         <div class="mode-desc">Duel en temps réel · Code de salle · ELO</div>
+      </div>
+    </button>
+    <button class="mode-btn" style="--mode-color:var(--red)" onclick="startSurvivalMode()" aria-label="Mode Survie Infinie">
+      <span class="mode-icon" aria-hidden="true">⏳</span>
+      <div class="mode-info">
+        <div class="mode-title">SURVIE INFINIE</div>
+        <div class="mode-desc">Bonne réponse +8s · Erreur −5s · Jusqu'à la mort</div>
       </div>
     </button>
     <button class="mode-btn" style="--mode-color:var(--gold-neon);display:none" onclick="showComingSoon('2v2')" aria-label="Mode 2 contre 2, bientôt disponible" aria-hidden="true">
@@ -395,6 +402,82 @@
     </button>
 
     <button class="btn-back" onclick="cancelOnline()" style="width:100%;text-align:center;margin-top:8px;padding:12px;" aria-label="Annuler et retour">✕ Annuler</button>
+  </div>
+</div>
+
+<!-- ══ SURVIE INFINIE ══ -->
+<div id="screenSurvival" class="screen hidden" role="main" aria-label="Mode Survie Infinie">
+  <div class="arena" id="svArena" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:16px;gap:10px;max-width:420px;margin:0 auto;">
+
+    <!-- Header -->
+    <div style="width:100%;display:flex;justify-content:space-between;align-items:center;">
+      <div id="svScore" style="font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:var(--gold-neon);">🏆 0</div>
+      <div id="svCombo" style="font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:var(--red);letter-spacing:1px;"></div>
+    </div>
+
+    <!-- Banque de temps -->
+    <div style="width:100%;text-align:center;">
+      <div id="svBank" style="font-family:'Syne',sans-serif;font-weight:800;font-size:52px;color:var(--blue-neon);line-height:1;letter-spacing:-1px;">30.0s</div>
+      <div style="width:100%;height:8px;background:rgba(255,255,255,0.08);border-radius:99px;margin-top:6px;overflow:hidden;">
+        <div id="svBankBar" style="height:100%;width:50%;background:var(--blue-neon);border-radius:99px;transition:width 0.05s linear,background 0.3s;"></div>
+      </div>
+    </div>
+
+    <!-- Zone question -->
+    <div id="svQuestionBox" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div id="svDiff" style="font-size:11px;letter-spacing:2px;font-weight:700;color:var(--blue-neon);">FACILE</div>
+
+      <!-- Formule -->
+      <div id="svFormula" style="font-family:'Share Tech Mono',monospace;font-size:34px;font-weight:700;color:var(--text);text-align:center;background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:18px 24px;width:100%;letter-spacing:1px;">?</div>
+
+      <!-- Réponse joueur -->
+      <div id="svInput" style="font-family:'Share Tech Mono',monospace;font-size:38px;font-weight:700;color:var(--blue-neon);background:var(--card);border:2px solid var(--blue-neon);border-radius:18px;padding:12px 24px;width:100%;text-align:center;min-height:64px;display:flex;align-items:center;justify-content:center;">?</div>
+
+      <!-- Feedback -->
+      <div id="svFeedback" style="font-size:14px;font-weight:700;text-align:center;min-height:22px;letter-spacing:0.5px;"></div>
+
+      <!-- Numpad -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;margin-top:4px;">
+        <button class="np-btn" onclick="window.svPress('7')" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">7</button>
+        <button class="np-btn" onclick="window.svPress('8')" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">8</button>
+        <button class="np-btn" onclick="window.svPress('9')" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">9</button>
+        <button class="np-btn" onclick="window.svPress('4')" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">4</button>
+        <button class="np-btn" onclick="window.svPress('5')" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">5</button>
+        <button class="np-btn" onclick="window.svPress('6')" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">6</button>
+        <button class="np-btn" onclick="window.svPress('1')" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">1</button>
+        <button class="np-btn" onclick="window.svPress('2')" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">2</button>
+        <button class="np-btn" onclick="window.svPress('3')" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">3</button>
+        <button class="np-btn" onclick="window.svNeg()" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;">+/−</button>
+        <button class="np-btn" onclick="window.svPress('0')" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">0</button>
+        <button class="np-btn" onclick="window.svDel()" style="padding:16px;font-size:22px;font-family:'Share Tech Mono',monospace;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;">⌫</button>
+      </div>
+
+      <!-- Valider -->
+      <button onclick="window.svSubmit()" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--blue-neon),#0088ee);color:#fff;border:none;border-radius:16px;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;letter-spacing:1px;cursor:pointer;margin-top:4px;-webkit-tap-highlight-color:transparent;">✅ VALIDER</button>
+
+      <!-- Quitter -->
+      <button onclick="window.goSplash()" style="width:100%;padding:12px;background:none;border:1.5px solid var(--border);border-radius:14px;font-family:'Space Grotesk',sans-serif;font-size:13px;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;">🚪 Quitter</button>
+    </div>
+
+    <!-- Game Over Box -->
+    <div id="svGameOverBox" style="display:none;flex-direction:column;align-items:center;gap:14px;width:100%;text-align:center;padding-top:20px;">
+      <div style="font-size:52px;" aria-hidden="true">💀</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:24px;color:var(--text);letter-spacing:2px;">GAME OVER</div>
+
+      <div id="svGoNew" style="display:none;background:linear-gradient(135deg,var(--gold-neon),var(--gold));color:#000;padding:6px 20px;border-radius:99px;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;letter-spacing:1px;">🏆 NOUVEAU RECORD !</div>
+
+      <div style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);font-size:13px;">Score</span><span id="svGoScore" style="font-family:'Syne',sans-serif;font-weight:800;color:var(--gold-neon);font-size:20px;">0</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);font-size:13px;">Bonnes réponses</span><span id="svGoCorrect" style="font-weight:700;color:var(--text);">0</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);font-size:13px;">Meilleur score</span><span id="svGoBest" style="font-weight:700;color:var(--blue-neon);">0</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);font-size:13px;">XP gagné</span><span id="svGoXP" style="font-weight:700;color:var(--purple);">+0 XP</span></div>
+      </div>
+
+      <button id="svShareBtn" onclick="window.svShare()" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--blue-neon),#0088ee);color:#fff;border:none;border-radius:16px;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;letter-spacing:1px;cursor:pointer;">📤 Partager</button>
+      <button onclick="window.startSurvivalMode()" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--red),#cc0000);color:#fff;border:none;border-radius:16px;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;letter-spacing:1px;cursor:pointer;">🔄 Rejouer</button>
+      <button onclick="window.goSplash()" style="width:100%;padding:12px;background:none;border:1.5px solid var(--border);border-radius:14px;font-family:'Space Grotesk',sans-serif;font-size:13px;color:var(--muted);cursor:pointer;">← Menu</button>
+    </div>
+
   </div>
 </div>
 
