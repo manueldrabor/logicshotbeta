@@ -362,20 +362,12 @@ function _syncClock() {
 
 function _checkBothReady() {
   if (!_isHost || _readyPlayers.size < 2) return;
-  /* Mesure le RTT exact par handshake NTP, PUIS envoie startAt.
-     nextAt = Date.now() + 3000 + rtt/2 :
-       - l'hôte attend rtt/2 ms de plus que le "vrai" t=0
-       - le message met rtt/2 ms à arriver chez l'invité
-       - quand l'invité reçoit le message, son Date.now() ≈ nextAt - 3000
-       → les deux countdowns démarrent au même instant absolu */
+  /* Mesure l'offset d'horloge NTP, puis envoie startAt.
+     startAt = now + 3000 (même valeur pour les deux appareils après correction d'horloge).
+     On n'ajoute plus rtt/2 : _clockOffset compense déjà le décalage des horloges.
+     Ajouter rtt/2 en plus créait un délai superflu de ~200-500ms visible des deux côtés. */
   _syncClock().then(() => {
-    const rtt = _estimatedLatency * 2;   /* rtt = 2 × one-way */
-    const startAt = Date.now() + 3000 + Math.min(rtt / 2, 500);
-    /* _clockOffset = heure_invité − heure_hôte :
-       On envoie startAt + _clockOffset pour que l'invité, en calculant
-       (startAt_reçu − guest.Date.now()), obtienne exactement 3000 ms,
-       identique à l'hôte. Sans ce correctif, tout décalage d'horloge
-       entre les deux appareils se répercute sur le démarrage du timer. */
+    const startAt = Date.now() + 3000;
     _send({ type: 'start_at', startAt: startAt + _clockOffset });
     import('./battle.js').then(({ receiveStartAt }) => receiveStartAt(startAt));
   });

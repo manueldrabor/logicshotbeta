@@ -741,13 +741,31 @@ function handleVisibility() {
       sfx.absent();
 
       if (State.gameMode === 'online') {
-        /* ── MODE ONLINE : freeze écran + countdown 15s ── */
-        /* Geler le timer local sans pénalité HP immédiate */
+        /* ── MODE ONLINE : −20 HP immédiat + freeze écran + countdown 15s ── */
+        /* Pénalité HP immédiate */
+        if (State.roundActive) {
+          p.hp = Math.max(0, p.hp - C.ABSENT_PENALTY);
+          updateHP(p);
+          showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--red)');
+          sfx.wrong();
+        }
+
+        /* Geler le timer */
         State.isPaused = true;
         State.waitingForAbsent = true;
 
-        /* Notifier l'adversaire (qui verra aussi un freeze côté absent) */
-        State.onlineAdapter?.broadcastAbsentPenalty(p.hp); /* hp inchangé pour l'instant */
+        /* Notifier l'adversaire avec les HP déjà réduits */
+        State.onlineAdapter?.broadcastAbsentPenalty(p.hp);
+
+        /* Si KO direct sur la pénalité → pas besoin de countdown */
+        if (p.hp <= 0) {
+          State.roundActive = false;
+          clearInterval(State.timerInterval);
+          State.onlineAdapter?.broadcastAbsentPenalty(0);
+          showFeedback(`💀 ${p.name} absent — −${C.ABSENT_PENALTY} HP · KO !`, 'fail');
+          setTimeout(() => finishBattle(), 3000);
+          return;
+        }
 
         /* Overlay visible localement */
         _showAbsentOverlay(p.name);
@@ -832,9 +850,9 @@ export function finishBattle(forceQuit = false) {
     _battleFinished = true;
     clearAll();
     showFeedback('⏳ Synchronisation du résultat…', 'draw');
-    /* FIX sync gagnant : si l'hôte ne répond pas dans 8s, l'invité calcule le résultat localement */
+    /* Fallback 8s : si l'hôte ne répond pas, l'invité calcule localement */
     setTimeout(() => {
-      if (_fromMatchResult) return; /* receiveMatchResult est arrivé entre-temps */
+      if (_matchResultReceived) return; /* receiveMatchResult déjà traité → ne pas doubler */
       _battleFinished = false;
       _fromMatchResult = true;
       finishBattle(false);
@@ -1030,6 +1048,8 @@ export function clearAll() {
 let _battleFinished = false;
 /* FIX guest freeze : permet à receiveMatchResult de contourner le guard online */
 let _fromMatchResult = false;
+/* FIX sync gagnant : true dès que receiveMatchResult a été reçu et traité */
+let _matchResultReceived = false;
 
 /* ══════════════════════════════════════
    ONLINE MODE — fonctions exportées
@@ -1037,7 +1057,9 @@ let _fromMatchResult = false;
 ══════════════════════════════════════ */
 export function receiveMatchResult(data) {
   if (State.gameMode !== 'online') return;
-  if (State.isHost) return; // l'hôte n'a pas besoin de recevoir son propre verdict
+  if (State.isHost) return;
+
+  _matchResultReceived = true; /* FIX : bloquer le fallback 8s */
 
   const localP = State.players.find(p => !p.isAI && !p.isRemote);
   const opp    = State.players.find(p => p.isRemote);
@@ -1062,8 +1084,9 @@ export function receiveMatchResult(data) {
   setTimeout(() => finishBattle(false), 1200);
 }
 export function beginOnlineBattle(myName, opponentName, rounds) {
-  _battleFinished = false; /* FIX : reset du guard pour cette nouvelle partie */
+  _battleFinished = false;
   _fromMatchResult = false;
+  _matchResultReceived = false; /* FIX : reset pour cette nouvelle partie */
   pauseMenuMusicForBattle();
   State.gameMode = 'online';
   State.unlockedSupers = { flash: true, glitch: true, shield: true };
@@ -1166,6 +1189,9 @@ function _onlineCountdownThenLoad(startAt, mode) {
           color:var(--cyan);letter-spacing:4px;
           animation:syncPulse 0.6s ease-in-out infinite;">SYNC…</div>`;
     } else {
+      /* FIX bug 2 : effacer immédiatement l'ancienne réponse avant d'afficher SYNC */
+      const fa = document.getElementById('formulaAnswer');
+      if (fa) { fa.textContent = ''; fa.style.display = 'none'; fa.className = 'formula-answer'; }
       const fd = document.getElementById('formulaDisplay');
       const fl = document.getElementById('formulaLabel');
       if (fl) fl.textContent = 'SYNCHRONISATION…';
@@ -1284,13 +1310,11 @@ export function fireNextRoundFromHost(roundIndex) {
   const adapter = State.onlineAdapter;
   const syncClock = adapter?._syncClock;
   const doFire = () => {
-    if (roundIndex !== State.roundIndex) return; /* guard si round changé pendant sync */
-    const rtt = (adapter?._getLatency?.() || 100) * 2;
-    /* nextAt = maintenant + 3s + rtt/2 :
-       - l'hôte attend rtt/2 ms supplémentaires
-       - le message met rtt/2 ms à arriver chez l'invité
-       → les deux comptent à rebours depuis le même instant absolu */
-    const nextAt = Date.now() + 3000 + Math.min(rtt / 2, 500);
+    if (roundIndex !== State.roundIndex) return;
+    /* nextAt = maintenant + 3s.
+       broadcastNextRound ajoute _clockOffset pour aligner les horloges des deux appareils.
+       Pas de + rtt/2 ici : ce terme ajoutait ~200-500ms de délai superflu des deux côtés. */
+    const nextAt = Date.now() + 3000;
     adapter?.broadcastNextRound(State.roundIndex, nextAt);
     _onlineCountdownThenLoad(nextAt, 'formula');
   };
