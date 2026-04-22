@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════
    sw.js — Service Worker LogicShot PWA
 ══════════════════════════════════════ */
-const CACHE_NAME = 'logicshot-v3';
+const CACHE_NAME = 'logicshot-v4';
 const ASSETS = [
   './',
   './index.html',
