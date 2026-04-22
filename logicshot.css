@@ -1667,3 +1667,268 @@ button:focus-visible {
   0%,100% { opacity: 0.2; transform: translateY(0); }
   50%      { opacity: 0.9; transform: translateY(-5px); }
 }
+
+/* ══════════════════════════════════════
+   SURVIE INFINIE
+══════════════════════════════════════ */
+#screenSurvival { overflow: hidden; }
+
+#svArena {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 12px 8px;
+  gap: 6px;
+  max-width: 420px;
+  margin: 0 auto;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.sv-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+#svScore {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--gold-neon);
+}
+#svCombo {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--red);
+  letter-spacing: 1px;
+}
+
+/* ── Banque de temps ── */
+.sv-bank-wrap {
+  width: 100%;
+  text-align: center;
+  flex-shrink: 0;
+}
+#svBank {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 42px;
+  color: var(--blue-neon);
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.sv-bank-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 99px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+#svBankBar {
+  height: 100%;
+  width: 50%;
+  background: var(--blue-neon);
+  border-radius: 99px;
+  transition: width 0.05s linear, background 0.3s;
+}
+
+/* ── Question box ── */
+#svQuestionBox {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-height: 0;
+}
+#svDiff {
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 700;
+  color: var(--blue-neon);
+  flex-shrink: 0;
+}
+#svFormula {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 16px;
+  width: 100%;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+/* ── Ligne réponse + valider ── */
+.sv-answer-row {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+#svInput {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--blue-neon);
+  background: var(--card);
+  border: 2px solid var(--blue-neon);
+  border-radius: 14px;
+  padding: 10px 12px;
+  flex: 1;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+}
+.sv-submit-btn {
+  width: 30%;
+  padding: 10px 6px;
+  background: linear-gradient(135deg, var(--blue-neon), #0088ee);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+#svFeedback {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  min-height: 18px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+/* ── Numpad ── */
+.sv-numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 100%;
+  flex-shrink: 0;
+}
+.sv-np-btn {
+  padding: 12px;
+  font-size: 20px;
+  font-family: 'Share Tech Mono', monospace;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sv-np-btn.muted { color: var(--muted); font-size: 16px; }
+.sv-np-btn:active { background: rgba(0, 180, 255, 0.1); transform: scale(0.96); }
+
+/* ── Bouton quitter ── */
+.sv-quit-btn {
+  width: 100%;
+  padding: 9px;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+/* ══ GAME OVER ══ */
+#svGameOverBox {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: center;
+  flex: 1;
+  min-height: 0;
+  justify-content: center;
+}
+.sv-go-skull { font-size: 36px; }
+.sv-go-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--text);
+  letter-spacing: 2px;
+}
+#svGoNew {
+  display: none;
+  background: linear-gradient(135deg, var(--gold-neon), var(--gold));
+  color: #000;
+  padding: 4px 14px;
+  border-radius: 99px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.sv-go-stats {
+  width: 100%;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.sv-go-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sv-go-label { color: var(--muted); font-size: 12px; }
+.sv-go-val   { font-weight: 700; font-size: 14px; }
+#svGoScore   { font-family: 'Syne', sans-serif; font-weight: 800; color: var(--gold-neon); font-size: 17px; }
+#svGoCorrect { color: var(--text); }
+#svGoBest    { color: var(--blue-neon); }
+#svGoXP      { color: var(--purple); }
+
+.sv-go-btns-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+.sv-go-btn {
+  padding: 11px 6px;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sv-go-btn.share  { background: linear-gradient(135deg, var(--blue-neon), #0088ee); color: #fff; }
+.sv-go-btn.rank   { background: linear-gradient(135deg, var(--gold-neon), var(--gold)); color: #000; }
+.sv-go-btn.replay { background: linear-gradient(135deg, var(--red), #cc0000); color: #fff; }
+.sv-go-btn.menu   { background: none; border: 1.5px solid var(--border); color: var(--muted); font-family: 'Space Grotesk', sans-serif; }
