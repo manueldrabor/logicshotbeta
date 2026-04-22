@@ -754,7 +754,7 @@ body::before{
   .story-title { font-size: 26px; }
   .story-progress { font-size: 14px; display: none;}
   .story-grid {
-    max-width: 648px;
+    max-width: 600px;
     grid-template-columns: repeat(5, 1fr);
     gap: 10px;
     padding: 5px 24px;
@@ -920,7 +920,7 @@ body::before{
   .formula-big { font-size: clamp(36px, 3.5vw, 64px); }
 
   .story-grid {
-    max-width: 700px;
+    max-width: 600px;
     gap: 12px;
   }
   .story-level { font-size: 30px; }
