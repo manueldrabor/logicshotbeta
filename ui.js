@@ -778,13 +778,13 @@ export function initCanvas() {
     pts.push({
       x:    Math.random(),
       y:    Math.random(),
-      vx:   (Math.random() - 0.5) * 0.00018,
-      vy:   (Math.random() - 0.5) * 0.00018,
+      vx:   (Math.random() - 0.5) * 0.00007,
+      vy:   (Math.random() - 0.5) * 0.00007,
       r:    Math.random() * 2.8 + 1.2,
       c:    cols[i % cols.length],
-      a:    Math.random() * 0.25 + 0.25,
-      life: Math.random() * 500 + 300,
-      ml:   500
+      a:    Math.random() * 0.10 + 0.08,
+      life: Math.random() * 800 + 500,
+      ml:   800
     });
   }
 
