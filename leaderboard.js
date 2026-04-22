@@ -74,10 +74,23 @@ export async function reserveName(wantedName) {
     /* 2. Device inconnu — vérifier si le nom existe pour un AUTRE device */
     let finalName = wantedName;
     const existing = await supaFetch(
-      `leaderboard?name=eq.${encodeURIComponent(wantedName)}&select=device_id`
+      `leaderboard?name=eq.${encodeURIComponent(wantedName)}&select=id,device_id`
     );
     if (existing.length > 0 && existing[0].device_id !== deviceId) {
-      /* Nom pris par un autre → bloquer, l'utilisateur doit choisir un autre nom */
+      /* Nom trouvé pour un autre device.
+         Si c'est le nom sauvegardé localement → cas de récupération de compte :
+         le PATCH device_id n'a peut-être pas encore propagé (ou cache effacé).
+         On reclaim silencieusement au lieu de bloquer. */
+      if (Save.getSavedName() === wantedName) {
+        await supaFetch(`leaderboard?id=eq.${existing[0].id}`, {
+          method: 'PATCH',
+          headers: { Prefer: '' },
+          body: JSON.stringify({ device_id: deviceId, updated_at: new Date().toISOString() })
+        });
+        Save.savePlayerName(wantedName);
+        return wantedName;
+      }
+      /* Nom pris par un autre joueur → bloquer */
       throw new Error('NAME_TAKEN');
     }
 
