@@ -161,22 +161,30 @@ window.showNameSetup = function(canCancel = false) {
   const skipBtn = document.getElementById('nameSetupSkipBtn');
   const title = document.getElementById('nameSetupTitle');
   const sub   = document.getElementById('nameSetupSub');
-  if (inp) { inp.value = Save.getSavedName() || ''; }
-  if (skipBtn) skipBtn.style.display = canCancel ? '' : 'none';
+  const existingName = Save.getSavedName();
+
+  if (inp) { inp.value = existingName || ''; }
+
+  /* Toujours afficher Annuler si : canCancel OU si un nom existe déjà */
+  const showCancel = canCancel || !!existingName;
+  if (skipBtn) skipBtn.style.display = showCancel ? '' : 'none';
+
   if (title) title.textContent = canCancel ? 'CHANGER TON PSEUDO' : 'TON NOM DE GUERRIER';
   if (sub) sub.textContent = canCancel
     ? 'Entre un nouveau pseudo. Il sera mis à jour partout.'
-    : 'Choisis un pseudo unique — il sera utilisé dans tous les modes et le classement.';
+    : 'Choisis un pseudo — il sera utilisé dans tous les modes et le classement.';
   document.getElementById('nameSetupWarn').textContent = '';
   showScreen('screenNameSetup');
   setTimeout(() => inp?.focus(), 200);
 };
 
 window.cancelNameSetup = function() {
-  if (_nameSetupCanCancel) goSplash();
+  /* Toujours permettre de revenir au splash (même premier lancement) */
+  _nameSetupCallback = null;
+  goSplash();
 };
 
-window.confirmNameSetup = async function() {
+window.confirmNameSetup = function() {
   const inp  = document.getElementById('nameSetupInput');
   const warn = document.getElementById('nameSetupWarn');
   const btn  = document.querySelector('#screenNameSetup .res-btn.gold');
@@ -188,37 +196,23 @@ window.confirmNameSetup = async function() {
     return;
   }
 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Vérification…'; }
-  if (warn) warn.textContent = '';
+  /* Sauvegarde locale immédiate — la vérification Supabase se fait
+     uniquement en mode online (startCreateRoom / startJoinRoom) */
+  Save.savePlayerName(raw);
+  State.oathNames = [raw];
+  if (btn) btn.textContent = '✅';
+  _refreshPlayerBadge();
 
-  try {
-    const { reserveName } = await import('./leaderboard.js');
-    const name = await reserveName(raw);
-    State.oathNames = [name];
-    _refreshPlayerBadge();
-    if (_nameSetupCallback) {
-      const cb = _nameSetupCallback;
-      _nameSetupCallback = null;
-      cb(name);
-    } else {
-      goSplash();
-    }
-  } catch(e) {
-    if (e.message === 'NAME_TAKEN') {
-      if (warn) warn.textContent = '❌ Ce pseudo est déjà pris, choisis-en un autre';
-      inp?.focus();
-    } else {
-      /* Offline fallback */
-      Save.savePlayerName(raw);
-      State.oathNames = [raw];
-      _refreshPlayerBadge();
-      const cb = _nameSetupCallback;
-      _nameSetupCallback = null;
-      if (cb) cb(raw); else goSplash();
-    }
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🚀 C\'EST PARTI !'; }
-  }
+  const cb = _nameSetupCallback;
+  _nameSetupCallback = null;
+
+  /* Sync cloud en arrière-plan, sans bloquer */
+  import('./leaderboard.js').then(m => {
+    m.reserveName(raw).catch(() => {});
+  }).catch(() => {});
+
+  if (cb) cb(raw);
+  else goSplash();
 };
 
 /* ══ SPLASH ══ */
@@ -406,7 +400,11 @@ async function startCreateRoom() {
     document.getElementById('lobbyShareBtn').style.display = '';
     showScreen('screenOnlineLobby');
   } catch(e) {
-    alert('Erreur : ' + e.message);
+    if (e.message === 'NAME_TAKEN') {
+      showOnlineError(`❌ Le pseudo "${raw}" est déjà pris en ligne. Change-le via ✏️ Changer.`);
+    } else {
+      showOnlineError('⚠️ Erreur réseau. Réessaie.');
+    }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '🏠 Créer une salle'; }
   }
@@ -454,7 +452,11 @@ async function startJoinRoom() {
     document.getElementById('lobbyShareBtn').style.display = 'none';
     showScreen('screenOnlineLobby');
   } catch(e) {
-    alert('Erreur : ' + e.message);
+    if (e.message === 'NAME_TAKEN') {
+      showOnlineError(`❌ Le pseudo "${raw}" est déjà pris en ligne. Change-le via ✏️ Changer.`);
+    } else {
+      showOnlineError('⚠️ ' + (e.message || 'Erreur réseau. Réessaie.'));
+    }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '🚪 Rejoindre'; }
   }
