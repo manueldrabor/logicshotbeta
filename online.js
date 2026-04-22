@@ -285,7 +285,15 @@ function _onGuestJoined(guestName) {
        appeler _launchBattle avant que l'invité ait reçu les rounds. */
     _send({ type: 'game_start', rounds, hostName: _myName, guestName });
     _hostPendingBattle = { myName: _myName, guestName, rounds };
-    /* Fallback : si pas d'ACK dans 3s (réseau très lent), on lance quand même */
+    /* FIX #6 : re-send après 2s si l'invité n'a pas encore reçu le message
+       (mobile lent, cold-start WebSocket) */
+    setTimeout(() => {
+      if (_hostPendingBattle) {
+        _send({ type: 'game_start', rounds: _hostPendingBattle.rounds,
+                hostName: _myName, guestName: _hostPendingBattle.guestName });
+      }
+    }, 2000);
+    /* Fallback : si pas d'ACK dans 6s (réseau très lent), on lance quand même */
     clearTimeout(_hostBattleFallback);
     _hostBattleFallback = setTimeout(() => {
       if (_hostPendingBattle) {
@@ -293,7 +301,7 @@ function _onGuestJoined(guestName) {
         _hostPendingBattle = null;
         _launchBattle(myName, gn, r);
       }
-    }, 3000);
+    }, 6000);
   }, 2000);
 }
 
@@ -418,12 +426,16 @@ function _fireNextRound() {
   clearTimeout(_ackTimeout);
   _ackTimeout = null;
   const roundIndex = _ackRoundIndex;
-  _ackRoundIndex = -1;
-  _ackRoundFired = false; /* FIX : reset pour le prochain round */
-  _roundAcks.clear();
-  import('./battle.js').then(({ fireNextRoundFromHost }) =>
-    fireNextRoundFromHost(roundIndex)
-  );
+  /* FIX #3 : garder _ackRoundFired = true jusqu'à la résolution de l'import async.
+     Si un ACK retardé arrive pendant ce laps, _onRoundAck le rejette via _ackRoundFired.
+     Reset seulement APRÈS que fireNextRoundFromHost soit sur le point d'être appelé. */
+  _ackRoundFired = true;
+  import('./battle.js').then(({ fireNextRoundFromHost }) => {
+    _ackRoundIndex = -1;   /* reset après résolution */
+    _ackRoundFired = false;
+    _roundAcks.clear();
+    fireNextRoundFromHost(roundIndex);
+  });
 }
 
 /* ── next_round reçu (invité seulement) ── */

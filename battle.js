@@ -1147,8 +1147,11 @@ function _onlineNextRound() {
     /* fireNextRoundFromHost sera appelé par online.js quand les 2 ACKs sont reçus */
     /* Fallback si l'invité ne répond pas dans 4s */
     clearTimeout(State._ackFallback);
+    State._ackFiredForRound = ackIndex; /* FIX #1 : guard partagé anti-double-tir */
     State._ackFallback = setTimeout(() => {
-      if (State.gameMode === 'online' && State.roundActive === false) {
+      if (State.gameMode === 'online' && State.roundActive === false
+          && State._ackFiredForRound === ackIndex) {
+        State._ackFiredForRound = -1;
         fireNextRoundFromHost(ackIndex);
       }
     }, 4000);
@@ -1169,6 +1172,7 @@ function _onlineNextRound() {
 /* Appelé par online.js quand les 2 ACKs sont collectés */
 export function fireNextRoundFromHost(roundIndex) {
   clearTimeout(State._ackFallback);
+  State._ackFiredForRound = -1; /* FIX #1 : neutralise le fallback battle.js immédiatement */
   if (roundIndex !== State.roundIndex) return;
   /* FIX clock sync : on force toujours un syncClock() avant d'envoyer nextAt.
      Si le réseau est dégradé, le timeout d'1s dans _syncClock retourne 0
@@ -1195,13 +1199,40 @@ export function fireNextRoundFromHost(roundIndex) {
 }
 
 export function receiveNextRound(roundIndex, nextAt) {
-  if (roundIndex !== State.roundIndex) return;
+  /* FIX #2 : accepter roundIndex - 1 si l'invité a déjà avancé localement
+     (ex. via timeout ou resolveCorrect) — évite le blocage 8s sur SYNC */
+  const isCurrent  = roundIndex === State.roundIndex;
+  const isPrevious = roundIndex === State.roundIndex - 1;
+  if (!isCurrent && !isPrevious) return;
   State._waitingNextRound = -1;
   _onlineCountdownThenLoad(nextAt, 'formula');
 }
 
 export function receiveOpponentAnswer(val, correct, roundIndex) {
-  if (roundIndex !== State.roundIndex || !State.roundActive) return;
+  /* FIX #5 : accepter roundIndex - 1 (message arrivé après avancement local)
+     → mise à jour silencieuse des HP pour éviter la désynchronisation d'affichage */
+  const isCurrent  = roundIndex === State.roundIndex;
+  const isPrevious = roundIndex === State.roundIndex - 1;
+  if (!isCurrent && !isPrevious) return;
+
+  if (isPrevious) {
+    /* Round déjà passé : mettre à jour les HP sans effets UI */
+    if (correct) {
+      const opp = State.players.find(p => p.isRemote);
+      if (opp && !opp.answered) {
+        const prevRound = State.allRounds[roundIndex];
+        const target = State.players.find(p => p.id !== opp.id && !p.hasQuit);
+        if (target && prevRound) {
+          const dmg = C.DAMAGE[prevRound.difficulty] || 10;
+          target.hp = Math.max(0, target.hp - dmg);
+          updateHP(target);
+        }
+      }
+    }
+    return;
+  }
+
+  if (!State.roundActive) return;
   const opp = State.players.find(p => p.isRemote);
   if (!opp || opp.answered) return;
 
