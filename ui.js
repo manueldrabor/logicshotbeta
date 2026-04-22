@@ -6,7 +6,7 @@ import { sfx } from './audio.js';
 
 /* ══ NAVIGATION ══ */
 const ALL_SCREENS = [
-  'screenSplash','screenMatchmaking','screenDiffSelect','screenStory',
+  'screenSplash','screenNameSetup','screenMatchmaking','screenDiffSelect','screenStory',
   'screenNarrative','screenOath','screenBattle','screenResults','screenTutorial',
   'screenOnlineMenu','screenOnlineLobby','screenSurvival'
 ];

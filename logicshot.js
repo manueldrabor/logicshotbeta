@@ -184,7 +184,7 @@ window.cancelNameSetup = function() {
   goSplash();
 };
 
-window.confirmNameSetup = function() {
+window.confirmNameSetup = async function() {
   const inp  = document.getElementById('nameSetupInput');
   const warn = document.getElementById('nameSetupWarn');
   const btn  = document.querySelector('#screenNameSetup .res-btn.gold');
@@ -196,22 +196,43 @@ window.confirmNameSetup = function() {
     return;
   }
 
-  /* Sauvegarde locale immédiate — la vérification Supabase se fait
-     uniquement en mode online (startCreateRoom / startJoinRoom) */
+  /* Sauvegarder localement IMMÉDIATEMENT — garanti même si Supabase plante */
   Save.savePlayerName(raw);
   State.oathNames = [raw];
-  if (btn) btn.textContent = '✅';
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Vérification…'; }
+  if (warn) warn.textContent = '';
+
+  try {
+    const { reserveName } = await import('./leaderboard.js');
+    /* Timeout 4s pour ne pas bloquer si réseau lent */
+    const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error('TIMEOUT')), 4000));
+    const name = await Promise.race([reserveName(raw), timeoutP]);
+    /* Nom validé online — mettre à jour si différent */
+    if (name !== raw) {
+      Save.savePlayerName(name);
+      State.oathNames = [name];
+    }
+  } catch(e) {
+    if (e.message === 'NAME_TAKEN') {
+      /* Annuler la sauvegarde locale — le nom est pris */
+      localStorage.removeItem('ls_name');
+      State.oathNames = [];
+      if (warn) warn.textContent = '❌ Ce pseudo est déjà pris, choisis-en un autre';
+      if (btn) { btn.disabled = false; btn.textContent = '🚀 C\'EST PARTI !'; }
+      inp?.focus();
+      return;
+    }
+    /* TIMEOUT ou erreur réseau → garder le nom local, continuer quand même */
+    console.warn('Name check offline/timeout — local save kept:', raw);
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '🚀 C\'EST PARTI !'; }
   _refreshPlayerBadge();
 
   const cb = _nameSetupCallback;
   _nameSetupCallback = null;
-
-  /* Sync cloud en arrière-plan, sans bloquer */
-  import('./leaderboard.js').then(m => {
-    m.reserveName(raw).catch(() => {});
-  }).catch(() => {});
-
-  if (cb) cb(raw);
+  if (cb) cb(Save.getSavedName());
   else goSplash();
 };
 
