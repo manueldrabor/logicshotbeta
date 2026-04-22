@@ -693,35 +693,131 @@ export function quitBattle() {
   finishBattle(true);
 }
 
-/* ══ ABSENT ══ */
+/* ══ ABSENT ══
+   Comportement online :
+   - départ en arrière-plan → FREEZE de l'écran local + countdown 15s affiché
+   - si retour avant 15s → unfreeze, le jeu continue normalement pour les deux
+   - si 15s écoulées → victoire par forfait pour l'adversaire (présent gagne)
+   Comportement hors-ligne : pénalité HP immédiate inchangée
+══════════════════════════════════════ */
+let _absentTimer   = null;   /* setTimeout 15s */
+let _absentOverlay = null;   /* div overlay freeze */
+let _absentCountIv = null;   /* setInterval countdown affiché */
+
 export function startAbsentCheck() { document.addEventListener('visibilitychange', handleVisibility); }
+
+function _showAbsentOverlay(playerName) {
+  _removeAbsentOverlay();
+  const ov = document.createElement('div');
+  ov.id = 'absentOverlay';
+  ov.style.cssText = `position:fixed;inset:0;z-index:9200;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;
+    background:rgba(0,0,0,0.88);backdrop-filter:blur(8px);`;
+  ov.innerHTML = `
+    <div style="font-size:48px;">⏸️</div>
+    <div style="font-family:'Syne',sans-serif;font-size:clamp(16px,5vw,22px);font-weight:800;
+      color:var(--gold);text-align:center;letter-spacing:2px;">JEU EN PAUSE</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.6);letter-spacing:2px;text-align:center;">
+      ${playerName} a mis le jeu en arrière-plan
+    </div>
+    <div id="absentCountdown" style="font-family:'Syne',sans-serif;font-size:clamp(60px,20vw,100px);
+      font-weight:800;color:var(--red);text-shadow:0 0 30px rgba(255,60,60,.6);">15</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.4);letter-spacing:3px;">SECONDES AVANT FORFAIT</div>`;
+  document.body.appendChild(ov);
+  _absentOverlay = ov;
+}
+
+function _removeAbsentOverlay() {
+  _absentOverlay?.remove();
+  _absentOverlay = null;
+}
+
 function handleVisibility() {
   const hidden = document.hidden;
   State.players.filter(p => !p.isAI && !p.isRemote && !p.hasQuit).forEach(p => {
     if (hidden && !p.isAbsent) {
-      /* Départ en arrière-plan : pénalité immédiate (garantit que finishBattle
-         verra les bons HP même si le round se termine avant le retour) */
       p.isAbsent = true;
       setAbsentBadge(p.id, true);
       sfx.absent();
-      if (!State.roundActive) return; /* entre deux rounds — badge seulement, pas de pénalité */
-      p.hp = Math.max(0, p.hp - C.ABSENT_PENALTY);
-      updateHP(p);
-      showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--red)');
-      sfx.wrong();
+
       if (State.gameMode === 'online') {
-        State.onlineAdapter?.broadcastAbsentPenalty(p.hp);
+        /* ── MODE ONLINE : freeze écran + countdown 15s ── */
+        /* Geler le timer local sans pénalité HP immédiate */
+        State.isPaused = true;
+        State.waitingForAbsent = true;
+
+        /* Notifier l'adversaire (qui verra aussi un freeze côté absent) */
+        State.onlineAdapter?.broadcastAbsentPenalty(p.hp); /* hp inchangé pour l'instant */
+
+        /* Overlay visible localement */
+        _showAbsentOverlay(p.name);
+
+        /* Countdown 15s affiché */
+        let remaining = 15;
+        _absentCountIv = setInterval(() => {
+          remaining--;
+          const el = document.getElementById('absentCountdown');
+          if (el) el.textContent = remaining;
+          if (remaining <= 0) {
+            clearInterval(_absentCountIv);
+            _absentCountIv = null;
+          }
+        }, 1000);
+
+        /* Forfait après 15s si toujours absent */
+        clearTimeout(_absentTimer);
+        _absentTimer = setTimeout(() => {
+          if (!p.isAbsent) return; /* est revenu entre-temps */
+          clearInterval(_absentCountIv);
+          _absentCountIv = null;
+          _removeAbsentOverlay();
+          State.isPaused = false;
+          State.waitingForAbsent = false;
+          /* L'absent perd — son adversaire gagne par forfait */
+          p.hp = 0;
+          updateHP(p);
+          State.roundActive = false;
+          clearInterval(State.timerInterval);
+          showFeedback(`⏱️ ${p.name} absent 15s — défaite par forfait !`, 'fail');
+          if (State.gameMode === 'online') State.onlineAdapter?.broadcastAbsentPenalty(0);
+          setTimeout(() => finishBattle(), 3000);
+        }, 15000);
+
+      } else {
+        /* ── HORS-LIGNE : comportement original (pénalité HP immédiate) ── */
+        if (!State.roundActive) return;
+        p.hp = Math.max(0, p.hp - C.ABSENT_PENALTY);
+        updateHP(p);
+        showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--red)');
+        sfx.wrong();
+        if (p.hp <= 0) {
+          State.roundActive = false;
+          clearInterval(State.timerInterval);
+          showFeedback(`💀 ${p.name} a mis le jeu en arrière-plan — −${C.ABSENT_PENALTY} HP · KO !`, 'fail');
+          setTimeout(() => finishBattle(), 5000);
+        }
       }
-      if (p.hp <= 0) {
-        State.roundActive = false;
-        clearInterval(State.timerInterval);
-        showFeedback(`💀 ${p.name} a mis le jeu en arrière-plan — −${C.ABSENT_PENALTY} HP · KO !`, 'fail');
-        setTimeout(() => finishBattle(), 5000);
-      }
+
     } else if (!hidden && p.isAbsent) {
-      /* Retour : juste effacer le badge — la pénalité a déjà été appliquée au départ */
+      /* ── RETOUR ── */
       p.isAbsent = false;
       setAbsentBadge(p.id, false);
+
+      if (State.gameMode === 'online') {
+        /* Annuler le forfait */
+        clearTimeout(_absentTimer);
+        clearInterval(_absentCountIv);
+        _absentTimer = null;
+        _absentCountIv = null;
+        _removeAbsentOverlay();
+        /* Reprendre le timer */
+        State.isPaused = false;
+        State.waitingForAbsent = false;
+        /* Notifier l'adversaire que le joueur est revenu */
+        State.onlineAdapter?.broadcastPlayerReturned();
+        showFeedback(`✅ ${p.name} est de retour — reprise !`, 'ok');
+        setTimeout(() => hideFeedback(), 2000);
+      }
     }
   });
 }
@@ -736,6 +832,13 @@ export function finishBattle(forceQuit = false) {
     _battleFinished = true;
     clearAll();
     showFeedback('⏳ Synchronisation du résultat…', 'draw');
+    /* FIX sync gagnant : si l'hôte ne répond pas dans 8s, l'invité calcule le résultat localement */
+    setTimeout(() => {
+      if (_fromMatchResult) return; /* receiveMatchResult est arrivé entre-temps */
+      _battleFinished = false;
+      _fromMatchResult = true;
+      finishBattle(false);
+    }, 8000);
     return;
   }
   _fromMatchResult = false; /* reset après usage */
@@ -1092,17 +1195,17 @@ function _onlineCountdownThenLoad(startAt, mode) {
               animation:cdPop .3s cubic-bezier(.22,1,.36,1);">${secs}</div>
              <div style="font-size:14px;color:rgba(255,255,255,.5);letter-spacing:4px;margin-top:8px;">PRÉPARE-TOI</div>`;
         } else {
-          const fd = document.getElementById('formulaDisplay');
+          /* FIX saut : on n'écrase PAS formulaDisplay pendant le countdown.
+             Le résultat du round (= réponse) reste visible en haut.
+             Seul le label change pour indiquer le décompte. */
           const fl = document.getElementById('formulaLabel');
-          if (fl) fl.textContent = 'ROUND SUIVANT';
-          if (fd) {
-            fd.className = 'formula-big';
-            fd.style.cssText = `font-size:clamp(72px,22vw,120px);color:var(--gold-neon);
-              text-shadow:0 0 30px var(--gold-glow);animation:cdPop .3s cubic-bezier(.22,1,.36,1);`;
-            fd.textContent = secs;
-          }
-          const fa = document.getElementById('formulaAnswer');
-          if (fa) { fa.textContent = ''; fa.style.display = 'none'; }
+          if (fl) fl.textContent = `ROUND SUIVANT DANS ${secs}…`;
+          /* Afficher le chiffre dans le timer existant */
+          const tn = document.getElementById('timerNum');
+          if (tn) { tn.textContent = secs; tn.className = 'timer-num'; }
+          const tb = document.getElementById('timerBar');
+          if (tb) tb.style.width = `${(secs / 3) * 100}%`;
+          /* La formulaAnswer reste affichée jusqu'au loadRound */
         }
       }
     }
@@ -1321,23 +1424,80 @@ export function receiveOpponentQuit(oppName) {
   setTimeout(() => finishBattle(false), 2500);
 }
 
-/* L'adversaire est allé en arrière-plan → sync ses HP localement */
+/* L'adversaire est allé en arrière-plan → freeze local + attente retour ou forfait */
 export function receiveOpponentAbsent(newHp) {
   const opp = State.players.find(p => p.isRemote);
   if (!opp) return;
+
+  if (newHp === 0 && opp.hp > 0) {
+    /* Forfait confirmé par l'absent lui-même (hp envoyé = 0 après 15s) */
+    opp.hp = 0;
+    updateHP(opp);
+    _removeAbsentOverlay();
+    clearTimeout(_absentTimer);
+    clearInterval(_absentCountIv);
+    State.isPaused = false;
+    State.waitingForAbsent = false;
+    State.roundActive = false;
+    clearInterval(State.timerInterval);
+    showFeedback(`⏱️ ${opp.name} absent 15s — victoire par forfait !`, 'ok');
+    setTimeout(() => finishBattle(false), 3000);
+    return;
+  }
+
+  /* Absent détecté : geler l'écran côté présent aussi */
   opp.hp = Math.max(0, newHp);
   updateHP(opp);
-  showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--gold)');
-  showFeedback(`👁️ ${opp.name} est allé en arrière-plan — −${C.ABSENT_PENALTY} HP !`, 'ok');
-  sfx.wrong();
-  if (opp.hp <= 0) {
-    State.roundActive = false; clearInterval(State.timerInterval);
-    showFeedback(`💀 ${opp.name} a mis le jeu en arrière-plan · KO !`, 'ok');
-    setTimeout(() => finishBattle(false), 5000);
-  }
+  setAbsentBadge(opp.id, true);
+  State.isPaused = true;
+  State.waitingForAbsent = true;
+  sfx.absent();
+
+  _showAbsentOverlay(opp.name);
+
+  /* Countdown 15s synchronisé */
+  let remaining = 15;
+  _absentCountIv = setInterval(() => {
+    remaining--;
+    const el = document.getElementById('absentCountdown');
+    if (el) el.textContent = remaining;
+    if (remaining <= 0) { clearInterval(_absentCountIv); _absentCountIv = null; }
+  }, 1000);
+
+  /* Fallback local si le message "retour" ne revient pas dans 16s */
+  clearTimeout(_absentTimer);
+  _absentTimer = setTimeout(() => {
+    if (!State.waitingForAbsent) return;
+    clearInterval(_absentCountIv);
+    _absentCountIv = null;
+    _removeAbsentOverlay();
+    State.isPaused = false;
+    State.waitingForAbsent = false;
+    opp.hp = 0;
+    updateHP(opp);
+    State.roundActive = false;
+    clearInterval(State.timerInterval);
+    showFeedback(`⏱️ ${opp.name} absent 15s — victoire par forfait !`, 'ok');
+    setTimeout(() => finishBattle(false), 3000);
+  }, 16000);
 }
 
-/* Sync périodique du timer (hôte → invité, toutes les 3s) */
+/* L'adversaire est revenu → unfreeze l'écran du joueur présent */
+export function receiveOpponentReturned() {
+  const opp = State.players.find(p => p.isRemote);
+  if (opp) { opp.isAbsent = false; setAbsentBadge(opp.id, false); }
+  clearTimeout(_absentTimer);
+  clearInterval(_absentCountIv);
+  _absentTimer = null;
+  _absentCountIv = null;
+  _removeAbsentOverlay();
+  State.isPaused = false;
+  State.waitingForAbsent = false;
+  showFeedback(`✅ ${opp?.name || 'Adversaire'} est de retour — reprise !`, 'ok');
+  setTimeout(() => hideFeedback(), 2000);
+}
+
+
 let _syncInterval = null;
 function _startPeriodicSync(round, roundTime) {
   clearInterval(_syncInterval);
