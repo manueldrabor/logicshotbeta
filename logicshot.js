@@ -197,35 +197,26 @@ window.confirmNameSetup = async function() {
     return;
   }
 
-  /* Sauvegarder localement IMMÉDIATEMENT — garanti même si Supabase plante */
-  Save.savePlayerName(raw);
-  State.oathNames = [raw];
-
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Vérification…'; }
   if (warn) warn.textContent = '';
 
   try {
     const { reserveName } = await import('./leaderboard.js');
-    /* Timeout 4s pour ne pas bloquer si réseau lent */
     const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error('TIMEOUT')), 4000));
     const name = await Promise.race([reserveName(raw), timeoutP]);
-    /* Nom validé online — mettre à jour si différent */
-    if (name !== raw) {
-      Save.savePlayerName(name);
-      State.oathNames = [name];
-    }
+    /* Nom validé online → sauvegarder seulement maintenant */
+    Save.savePlayerName(name);
+    State.oathNames = [name];
   } catch(e) {
     if (e.message === 'NAME_TAKEN') {
-      /* Annuler la sauvegarde locale — le nom est pris */
-      localStorage.removeItem('ls_name');
-      State.oathNames = [];
       if (warn) warn.textContent = '❌ Ce pseudo est déjà pris, choisis-en un autre';
       if (btn) { btn.disabled = false; btn.textContent = '🚀 C\'EST PARTI !'; }
       inp?.focus();
-      return;
+      return; /* ne pas continuer, ne pas sauvegarder */
     }
-    /* TIMEOUT ou erreur réseau → garder le nom local, continuer quand même */
-    console.warn('Name check offline/timeout — local save kept:', raw);
+    /* Hors ligne ou timeout → sauvegarder localement et continuer */
+    Save.savePlayerName(raw);
+    State.oathNames = [raw];
   }
 
   if (btn) { btn.disabled = false; btn.textContent = '🚀 C\'EST PARTI !'; }
