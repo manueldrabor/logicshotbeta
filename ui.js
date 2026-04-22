@@ -766,27 +766,25 @@ export function initCanvas() {
   resize();
   window.addEventListener('resize', resize);
 
-  /* ── Couleurs plus vives et saturées ── */
+  /* ── 4 couleurs : cyan, or, violet, rouge survie ── */
   const cols = [
     'rgba(0,180,255,',    /* cyan néon */
     'rgba(245,196,0,',    /* or néon */
-    'rgba(0,255,200,',    /* vert-cyan */
     'rgba(140,80,255,',   /* violet */
-    'rgba(255,80,120,'    /* rose */
+    'rgba(229,48,48,',    /* rouge survie */
   ];
 
-  /* ── 80 particules au lieu de 55, plus grosses et plus rapides ── */
   for (let i = 0; i < 80; i++) {
     pts.push({
       x:    Math.random(),
       y:    Math.random(),
-      vx:   (Math.random() - 0.5) * 0.00055,   /* 2.75× plus rapides */
-      vy:   (Math.random() - 0.5) * 0.00055,
-      r:    Math.random() * 2.8 + 1.2,          /* rayon 1.2–4px (était 0.3–1.7) */
+      vx:   (Math.random() - 0.5) * 0.00018,
+      vy:   (Math.random() - 0.5) * 0.00018,
+      r:    Math.random() * 2.8 + 1.2,
       c:    cols[i % cols.length],
-      a:    Math.random() * 0.45 + 0.45,        /* alpha 0.45–0.90 (était 0.1–0.6) */
-      life: Math.random() * 300 + 150,
-      ml:   300
+      a:    Math.random() * 0.25 + 0.25,
+      life: Math.random() * 500 + 300,
+      ml:   500
     });
   }
 

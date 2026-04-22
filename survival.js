@@ -64,7 +64,7 @@ async function _saveBestOnline(score) {
 /* ══ CONSTANTES ══ */
 const TIME_START   = 30;
 const TIME_CORRECT = 15;
-const TIME_WRONG   = 3;
+const TIME_WRONG   = 10;
 const TIME_CAP     = 60;
 const SCORE_BASE   = 100;
 
