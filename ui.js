@@ -240,21 +240,31 @@ export function triggerRoundTransition(cb) {
   unfreezeTimerUI();
   const fzone = document.querySelector('.formula-zone');
   if (!fzone) { cb(); return; }
+
   fzone.style.transition = 'opacity 0.22s ease, transform 0.22s ease';
   fzone.style.opacity = '0';
   fzone.style.transform = 'translateY(10px)';
+
   setTimeout(() => {
-    const fa = document.getElementById('formulaAnswer');
-    if (fa) { fa.textContent = ''; fa.style.display = 'none'; fa.className = 'formula-answer'; }
+    // IMPORTANT :
+    // on ne vide PLUS formulaAnswer ici,
+    // sinon il y a un trou visuel avant le countdown online.
     fzone.style.transition = 'none';
     fzone.style.transform = 'translateY(-14px)';
+
     cb();
+
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        fzone.style.transition = 'opacity 0.32s cubic-bezier(0.22,1,0.36,1), transform 0.32s cubic-bezier(0.22,1,0.36,1)';
+        fzone.style.transition =
+          'opacity 0.32s cubic-bezier(0.22,1,0.36,1), transform 0.32s cubic-bezier(0.22,1,0.36,1)';
         fzone.style.opacity = '1';
         fzone.style.transform = 'translateY(0)';
-        setTimeout(() => { fzone.style.transition = ''; fzone.style.opacity = ''; fzone.style.transform = ''; }, 360);
+        setTimeout(() => {
+          fzone.style.transition = '';
+          fzone.style.opacity = '';
+          fzone.style.transform = '';
+        }, 360);
       });
     });
   }, 230);
