@@ -132,6 +132,14 @@
   </div>
   <div class="splash-sub" aria-hidden="true">Calcule · Tire · Survie</div>
 
+  <!-- Badge joueur (affiché si pseudo enregistré) -->
+  <div id="splashPlayerBadge" style="display:none;text-align:center;">
+    <button class="splash-player-badge" onclick="window.showNameSetup(true)" aria-label="Changer de pseudo">
+      <span>👤</span>
+      <span id="splashPlayerName">Joueur</span>
+      <span class="badge-pencil">✏️</span>
+    </button>
+  </div>
 
   <!-- XP Bar -->
   <div class="xp-bar-wrap" role="progressbar" aria-label="Barre d'expérience">
@@ -194,6 +202,28 @@
     <div class="mm-inputs" id="mmInputs"></div>
     <button class="res-btn gold" style="width:100%;margin-top:4px;" onclick="proceedMatchmaking()" aria-label="Continuer vers le combat">⚔️ CONTINUER</button>
     <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:10px;padding:12px;" aria-label="Retour au menu">← Retour au menu</button>
+  </div>
+</div>
+
+<!-- ══ NAME SETUP — Premier lancement ══ -->
+<div id="screenNameSetup" class="screen hidden" role="main" aria-label="Choix du pseudo">
+  <div class="name-setup-box">
+    <span class="name-setup-emoji">🎯</span>
+    <div class="name-setup-title" id="nameSetupTitle">TON NOM DE GUERRIER</div>
+    <div class="name-setup-sub" id="nameSetupSub">
+      Choisis un pseudo unique.<br>Il sera utilisé dans tous les modes et le classement.
+    </div>
+    <div class="name-setup-warn" id="nameSetupWarn"></div>
+    <input class="name-setup-input" id="nameSetupInput"
+      placeholder="Ex: ShadowCalc"
+      maxlength="14" type="text" autocomplete="username"
+      aria-label="Ton pseudo"
+      oninput="document.getElementById('nameSetupWarn').textContent=''"
+      onkeydown="if(event.key==='Enter')window.confirmNameSetup()">
+    <button class="res-btn gold" style="width:100%;margin-top:4px;" onclick="window.confirmNameSetup()" aria-label="Valider le pseudo">
+      🚀 C'EST PARTI !
+    </button>
+    <button id="nameSetupSkipBtn" class="btn-back" style="display:none;width:100%;text-align:center;margin-top:10px;padding:12px;" onclick="window.cancelNameSetup()" aria-label="Annuler">← Annuler</button>
   </div>
 </div>
 
@@ -374,7 +404,26 @@
     <div class="online-title">⚔️ 1 vs 1 EN LIGNE</div>
     <div class="online-sub">Duel mathématique en temps réel</div>
 
-    <input id="onlineNameInput" class="mm-input" placeholder="Ton pseudo" maxlength="14" type="text" autocomplete="username" aria-label="Ton pseudo">
+    <!-- Affichage du pseudo enregistré -->
+    <div id="onlineNameDisplay" style="
+      display:flex;align-items:center;justify-content:space-between;
+      padding:12px 16px;border:1.5px solid var(--border-gold);border-radius:12px;
+      background:rgba(245,196,0,0.06);margin-bottom:6px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">👤</span>
+        <div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-weight:600;">Joueur</div>
+          <div id="onlineNameShown" style="font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:var(--gold);">—</div>
+        </div>
+      </div>
+      <button onclick="window.showNameSetup(true)" style="
+        padding:6px 12px;border:1px solid var(--border);border-radius:20px;
+        background:none;color:var(--muted);font-size:11px;font-weight:600;
+        cursor:pointer;font-family:'Space Grotesk',sans-serif;">✏️ Changer</button>
+    </div>
+
+    <!-- Fallback input si pas de nom (masqué par JS si nom existant) -->
+    <input id="onlineNameInput" class="mm-input" placeholder="Ton pseudo" maxlength="14" type="text" autocomplete="username" aria-label="Ton pseudo" style="display:none;">
 
     <button id="onlineCreateBtn" class="online-btn primary" onclick="startCreateRoom()" aria-label="Créer une salle">
       🏠 Créer une salle
@@ -425,7 +474,7 @@
 <div id="screenSurvival" class="screen hidden" role="main" aria-label="Mode Survie Infinie">
   <div id="svArena">
 
-    <!-- Header -->
+    <!-- Header : score + combo -->
     <div class="sv-header">
       <div id="svScore">🏆 0</div>
       <div id="svCombo"></div>
@@ -433,6 +482,7 @@
 
     <!-- Banque de temps -->
     <div class="sv-bank-wrap">
+      <div class="sv-timer-label">TEMPS RESTANT</div>
       <div id="svBank">30.0s</div>
       <div class="sv-bank-bar-bg">
         <div id="svBankBar"></div>
@@ -447,15 +497,15 @@
 
       <div id="svFeedback"></div>
 
-      <!-- Réponse + Valider — même UI que le mode VS Machine -->
-      <div class="answer-zone" id="svAnswerZone">
+      <!-- Réponse + Valider -->
+      <div class="answer-zone" id="svAnswerZone" style="width:100%;">
         <div class="player-answer-row">
           <input type="text" inputmode="none" readonly class="ans-input" id="svInput" placeholder="?" autocomplete="off" aria-label="Ta réponse">
           <button class="fire-btn" onclick="window.svSubmit()" aria-label="Valider la réponse">🎯 RÉPONSE</button>
         </div>
       </div>
 
-      <!-- Numpad — même UI que le mode VS Machine -->
+      <!-- Numpad -->
       <div id="svNumpadZone">
         <div class="numpad" role="group" aria-label="Clavier numérique">
           <button class="numpad-btn" aria-label="7" onclick="window.svPress('7')">7</button>
@@ -483,15 +533,28 @@
       <div id="svGoNew">🏆 NOUVEAU RECORD !</div>
 
       <div class="sv-go-stats">
-        <div class="sv-go-row"><span class="sv-go-label">Score</span><span id="svGoScore">0</span></div>
-        <div class="sv-go-row"><span class="sv-go-label">Bonnes réponses</span><span id="svGoCorrect" class="sv-go-val">0</span></div>
-        <div class="sv-go-row"><span class="sv-go-label">Meilleur score</span><span id="svGoBest" class="sv-go-val">0</span></div>
-        <div class="sv-go-row"><span class="sv-go-label">XP gagné</span><span id="svGoXP" class="sv-go-val">+0 XP</span></div>
+        <div class="sv-go-row">
+          <span class="sv-go-label">Score final</span>
+          <span id="svGoScore" class="sv-go-val">0</span>
+        </div>
+        <div class="sv-go-divider"></div>
+        <div class="sv-go-row">
+          <span class="sv-go-label">Bonnes réponses</span>
+          <span id="svGoCorrect" class="sv-go-val">0</span>
+        </div>
+        <div class="sv-go-row">
+          <span class="sv-go-label">Meilleur score</span>
+          <span id="svGoBest" class="sv-go-val">0</span>
+        </div>
+        <div class="sv-go-row">
+          <span class="sv-go-label">XP gagné</span>
+          <span id="svGoXP" class="sv-go-val">+0 XP</span>
+        </div>
       </div>
 
       <div class="sv-go-btns-row">
         <button id="svShareBtn" class="sv-go-btn share" onclick="window.svShare()">📤 Partager</button>
-        <button class="sv-go-btn rank" onclick="window.showLeaderboard('survival')">🏆 Classement Survie</button>
+        <button class="sv-go-btn rank" onclick="window.showLeaderboard('survival')">🏆 Classement</button>
       </div>
       <div class="sv-go-btns-row">
         <button class="sv-go-btn replay" onclick="window.startSurvivalMode()">🔄 Rejouer</button>

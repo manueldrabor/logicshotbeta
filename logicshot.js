@@ -64,13 +64,15 @@ window.cancelOnline = cancelOnline;
 /* ══ SURVIE INFINIE ══ */
 window.startSurvivalMode = () => {
   stopMenuMusic();
-  State.gameMode = '1vm'; /* non-story → proceedMatchmaking ira vers screenOath */
+  State.gameMode = '1vm';
   window._oathCallback = () => startSurvival();
   const saved = Save.getSavedName();
   if (!saved) {
-    document.getElementById('mmInputs').innerHTML = `<input class="mm-input" id="mmInp0" placeholder="Ton pseudo" maxlength="14" type="text" autocomplete="username" aria-label="Ton pseudo">`;
-    document.getElementById('mmTitle').textContent = 'TON NOM DE GUERRIER';
-    showScreen('screenMatchmaking');
+    _nameSetupCallback = (name) => {
+      State.oathNames = [name];
+      showScreen('screenOath');
+    };
+    window.showNameSetup(false);
   } else {
     State.oathNames = [saved];
     showScreen('screenOath');
@@ -108,12 +110,13 @@ const NARRATIVES = {
   finale:{robot:'🤝',text:`20 niveaux. Tu as gagné.\n\nMon créateur voulait te montrer que les chiffres ne sont pas tes ennemis.\n\nMoi non plus. Je suis ce miroir dont il parlait — et dans ce miroir, j'ai vu quelqu'un qui refuse d'abandonner.\n\nJe ne suis pas une menace. Je suis un outil au service de ceux qui osent.\n\nÀ bientôt, partenaire.`}
 };
 
-/* ══ NAVIGATION ══ */
+/* ══ NAVIGATE ══ */
 function goSplash() {
   clearAll();
   document.removeEventListener('visibilitychange', () => {});
   showScreen('screenSplash');
   resumeMenuMusic();
+  _refreshPlayerBadge();
   /* Garantir 2 entrées history au splash pour que le double-appui retour fonctionne */
   if (_historyReady) {
     history.pushState({ ls: true }, '');
@@ -121,14 +124,110 @@ function goSplash() {
   }
 }
 
+/* ══ BADGE NOM JOUEUR SUR SPLASH ══ */
+function _refreshPlayerBadge() {
+  const name = Save.getSavedName();
+  const badge = document.getElementById('splashPlayerBadge');
+  const nameEl = document.getElementById('splashPlayerName');
+  if (badge && nameEl) {
+    if (name) {
+      nameEl.textContent = name;
+      badge.style.display = 'block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+  /* Mettre à jour l'affichage dans le menu online */
+  const onlineShown = document.getElementById('onlineNameShown');
+  const onlineDisplay = document.getElementById('onlineNameDisplay');
+  const onlineInput = document.getElementById('onlineNameInput');
+  if (name && onlineShown) {
+    onlineShown.textContent = name;
+    if (onlineDisplay) onlineDisplay.style.display = 'flex';
+    if (onlineInput)  onlineInput.style.display = 'none';
+  } else if (!name) {
+    if (onlineDisplay) onlineDisplay.style.display = 'none';
+    if (onlineInput)  { onlineInput.style.display = ''; onlineInput.value = ''; }
+  }
+}
+
+/* ══ NAME SETUP SCREEN ══ */
+let _nameSetupCallback = null;
+let _nameSetupCanCancel = false;
+
+window.showNameSetup = function(canCancel = false) {
+  _nameSetupCanCancel = canCancel;
+  const inp = document.getElementById('nameSetupInput');
+  const skipBtn = document.getElementById('nameSetupSkipBtn');
+  const title = document.getElementById('nameSetupTitle');
+  const sub   = document.getElementById('nameSetupSub');
+  if (inp) { inp.value = Save.getSavedName() || ''; }
+  if (skipBtn) skipBtn.style.display = canCancel ? '' : 'none';
+  if (title) title.textContent = canCancel ? 'CHANGER TON PSEUDO' : 'TON NOM DE GUERRIER';
+  if (sub) sub.textContent = canCancel
+    ? 'Entre un nouveau pseudo. Il sera mis à jour partout.'
+    : 'Choisis un pseudo unique — il sera utilisé dans tous les modes et le classement.';
+  document.getElementById('nameSetupWarn').textContent = '';
+  showScreen('screenNameSetup');
+  setTimeout(() => inp?.focus(), 200);
+};
+
+window.cancelNameSetup = function() {
+  if (_nameSetupCanCancel) goSplash();
+};
+
+window.confirmNameSetup = async function() {
+  const inp  = document.getElementById('nameSetupInput');
+  const warn = document.getElementById('nameSetupWarn');
+  const btn  = document.querySelector('#screenNameSetup .res-btn.gold');
+  const raw  = (inp?.value || '').trim();
+
+  if (!raw) {
+    if (warn) warn.textContent = '⚠️ Entre un pseudo pour continuer !';
+    inp?.focus();
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Vérification…'; }
+  if (warn) warn.textContent = '';
+
+  try {
+    const { reserveName } = await import('./leaderboard.js');
+    const name = await reserveName(raw);
+    State.oathNames = [name];
+    _refreshPlayerBadge();
+    if (_nameSetupCallback) {
+      const cb = _nameSetupCallback;
+      _nameSetupCallback = null;
+      cb(name);
+    } else {
+      goSplash();
+    }
+  } catch(e) {
+    if (e.message === 'NAME_TAKEN') {
+      if (warn) warn.textContent = '❌ Ce pseudo est déjà pris, choisis-en un autre';
+      inp?.focus();
+    } else {
+      /* Offline fallback */
+      Save.savePlayerName(raw);
+      State.oathNames = [raw];
+      _refreshPlayerBadge();
+      const cb = _nameSetupCallback;
+      _nameSetupCallback = null;
+      if (cb) cb(raw); else goSplash();
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🚀 C\'EST PARTI !'; }
+  }
+};
+
 /* ══ SPLASH ══ */
 function startStoryMode() {
   State.gameMode = 'story';
   const saved = Save.getSavedName();
   if (!saved) {
-    document.getElementById('mmInputs').innerHTML = `<input class="mm-input" id="mmInp0" placeholder="Ton pseudo" maxlength="14" type="text" autocomplete="username" aria-label="Ton nom de guerrier">`;
-    document.getElementById('mmTitle').textContent = 'TON NOM DE GUERRIER';
-    showScreen('screenMatchmaking');
+    _nameSetupCallback = () => openStoryMap();
+    window.showNameSetup(false);
   } else {
     State.oathNames = [saved];
     openStoryMap();
@@ -144,9 +243,16 @@ function selectAIDiff(diff) {
     shield: diff === 'hard'
   };
   const saved = Save.getSavedName();
-  document.getElementById('mmInputs').innerHTML = `<input class="mm-input" id="mmInp0" placeholder="Ton pseudo" maxlength="14" type="text" value="${saved}" autocomplete="username" aria-label="Ton pseudo">`;
-  document.getElementById('mmTitle').textContent = "ENTRER DANS L'ARÈNE";
-  showScreen('screenMatchmaking');
+  if (!saved) {
+    _nameSetupCallback = (name) => {
+      State.oathNames = [name];
+      showScreen('screenOath');
+    };
+    window.showNameSetup(false);
+  } else {
+    State.oathNames = [saved];
+    showScreen('screenOath');
+  }
 }
 
 async function proceedMatchmaking() {
@@ -235,9 +341,17 @@ function replayStoryLevel() { startStoryLevel(State.currentStoryLevel); }
 /* ══ ONLINE 1v1 ══ */
 function startOnlineMode() {
   const saved = Save.getSavedName();
-  const inp = document.getElementById('onlineNameInput');
-  if (inp && saved) inp.value = saved;
   stopMenuMusic();
+  _refreshPlayerBadge(); /* Sync le nom dans l'écran online */
+  if (!saved) {
+    /* Pas de nom — demander d'abord, puis revenir au mode online */
+    _nameSetupCallback = () => startOnlineMode();
+    window.showNameSetup(false);
+    return;
+  }
+  /* Nom connu → pré-remplir le champ fallback input aussi */
+  const inp = document.getElementById('onlineNameInput');
+  if (inp) inp.value = saved;
   window._oathCallback = () => showScreen('screenOnlineMenu');
   showScreen('screenOath');
 }
@@ -258,15 +372,14 @@ function showOnlineError(msg) {
 }
 
 async function startCreateRoom() {
-  const inp  = document.getElementById('onlineNameInput');
-  const raw  = (inp?.value || '').trim();
+  /* Utilise le nom sauvegardé — l'input est un fallback si jamais pas de nom */
+  const saved = Save.getSavedName();
+  const inp   = document.getElementById('onlineNameInput');
+  const raw   = saved || (inp?.value || '').trim();
 
-  /* Nom obligatoire */
   if (!raw) {
-    inp?.focus();
-    inp?.classList.add('wrong');
-    setTimeout(() => inp?.classList.remove('wrong'), 700);
     showOnlineError('⚠️ Entre ton pseudo pour continuer !');
+    if (inp) { inp.style.display = ''; inp.focus(); }
     return;
   }
 
@@ -300,17 +413,15 @@ async function startCreateRoom() {
 }
 
 async function startJoinRoom() {
+  const saved   = Save.getSavedName();
   const nameInp = document.getElementById('onlineNameInput');
   const codeInp = document.getElementById('onlineCodeInput');
-  const raw  = (nameInp?.value || '').trim();
+  const raw  = saved || (nameInp?.value || '').trim();
   const code = (codeInp?.value || '').trim().toUpperCase();
 
-  /* Nom obligatoire */
   if (!raw) {
-    nameInp?.focus();
-    nameInp?.classList.add('wrong');
-    setTimeout(() => nameInp?.classList.remove('wrong'), 700);
     showOnlineError('⚠️ Entre ton pseudo pour continuer !');
+    if (nameInp) { nameInp.style.display = ''; nameInp.focus(); }
     return;
   }
 
@@ -459,9 +570,9 @@ document.addEventListener('keydown', e => {
 ══════════════════════════════════════════════════════════════ */
 
 const SCREEN_ORDER = [
-  'screenSplash','screenMatchmaking','screenDiffSelect','screenStory',
+  'screenSplash','screenNameSetup','screenMatchmaking','screenDiffSelect','screenStory',
   'screenNarrative','screenOath','screenBattle','screenResults',
-  'screenTutorial','screenOnlineMenu','screenOnlineLobby'
+  'screenTutorial','screenOnlineMenu','screenOnlineLobby','screenSurvival'
 ];
 
 function _getCurrentScreen() {
@@ -509,11 +620,12 @@ function _handleBack() {
   history.pushState({ ls: true }, '');
 
   switch (screen) {
-    case 'screenMatchmaking':  goSplash();       break;
-    case 'screenDiffSelect':   goSplash();       break;
-    case 'screenResults':      goSplash();       break;
-    case 'screenOnlineMenu':   goSplash();       break;
-    case 'screenTutorial':     closeTutorial();  break;
+    case 'screenNameSetup':     window.cancelNameSetup();  break;
+    case 'screenMatchmaking':   goSplash();       break;
+    case 'screenDiffSelect':    goSplash();       break;
+    case 'screenResults':       goSplash();       break;
+    case 'screenOnlineMenu':    goSplash();       break;
+    case 'screenTutorial':      closeTutorial();  break;
     case 'screenStory':        goSplash();       break;
     case 'screenNarrative':
       if (State.gameMode === 'story') openStoryMap(); else goSplash(); break;
@@ -575,17 +687,32 @@ window.addEventListener('popstate', () => {
   initAudioAutoplay();
   renderXPBar();
 
-  /* Restaurer progression cloud si localStorage vide (ex: cache effacé sur mobile) */
+  /* Afficher le badge joueur si nom déjà enregistré */
+  _refreshPlayerBadge();
+
+  /* Restaurer progression cloud si localStorage vide */
   import('./leaderboard.js').then(m => {
-    m.loadProgressFromCloud().then(() => renderXPBar()).catch(() => {});
+    m.loadProgressFromCloud().then(() => { renderXPBar(); _refreshPlayerBadge(); }).catch(() => {});
   }).catch(() => {});
 
-  /* Tutoriel premier lancement */
+  /* Tutoriel premier lancement → puis demander le pseudo si pas encore défini */
   if (!localStorage.getItem('ls_tutorial_done')) {
     setTimeout(() => {
       localStorage.setItem('ls_tutorial_done', '1');
       showTutorial();
+      /* Après fermeture du tuto, demander le pseudo */
+      const origClose = window.closeTutorial;
+      window.closeTutorial = function() {
+        origClose && origClose();
+        window.closeTutorial = origClose; /* restaurer */
+        if (!Save.getSavedName()) {
+          setTimeout(() => window.showNameSetup(false), 300);
+        }
+      };
     }, 600);
+  } else if (!Save.getSavedName()) {
+    /* Retour après cache effacé sans tuto */
+    setTimeout(() => window.showNameSetup(false), 800);
   }
 
   /* Mettre à jour le badge story sur le splash */
