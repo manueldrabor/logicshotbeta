@@ -176,6 +176,26 @@ function updateLocalElo(name, delta) {
 
 export function isOnlineLeaderboard() { return isConfigured; }
 
+export async function fetchSurvivalLeaderboard() {
+  if (!isConfigured) return getLocalSurvivalLeaderboard();
+  try {
+    const data = await supaFetch(
+      'leaderboard?select=name,survival_best&survival_best=gt.0&order=survival_best.desc&limit=10'
+    );
+    return data.filter(e => e.survival_best > 0);
+  } catch(e) {
+    console.warn('Survival leaderboard offline — fallback local', e);
+    return getLocalSurvivalLeaderboard();
+  }
+}
+
+function getLocalSurvivalLeaderboard() {
+  const best = parseInt(localStorage.getItem('ls_survival_best') || '0');
+  const name = localStorage.getItem('ls_name') || 'Moi';
+  if (best === 0) return [];
+  return [{ name, survival_best: best }];
+}
+
 /* ══════════════════════════════════════
    SYNC PROGRESSION (XP / story / étoiles)
    SQL à exécuter UNE FOIS dans Supabase :

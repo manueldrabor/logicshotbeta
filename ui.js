@@ -380,42 +380,120 @@ export function showShop() {
   openModal();
 }
 
-export async function showLeaderboard() {
-  document.getElementById('modalTitle').textContent = '🏆 Classement ELO';
+export async function showLeaderboard(tab = 'elo') {
+  document.getElementById('modalTitle').textContent = '🏆 Classement';
   document.getElementById('modalContent').innerHTML = `
-    <div style="text-align:center;padding:20px;color:var(--muted);">
-      <div style="font-size:24px;animation:robotBreathe 1.5s infinite">⏳</div>
-      <div style="font-size:12px;margin-top:8px;">Chargement…</div>
+    <!-- Onglets -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button id="lbTabElo" onclick="window._lbShowTab('elo')" style="
+        flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--border);
+        font-family:'Syne',sans-serif;font-weight:800;font-size:12px;letter-spacing:1px;
+        cursor:pointer;transition:all .15s;
+        background:${tab==='elo'?'var(--blue-neon)':'var(--surface)'};
+        color:${tab==='elo'?'#000':'var(--muted)'};
+        border-color:${tab==='elo'?'var(--blue-neon)':'var(--border)'};
+      ">⚔️ ELO</button>
+      <button id="lbTabSurvival" onclick="window._lbShowTab('survival')" style="
+        flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--border);
+        font-family:'Syne',sans-serif;font-weight:800;font-size:12px;letter-spacing:1px;
+        cursor:pointer;transition:all .15s;
+        background:${tab==='survival'?'var(--red)':'var(--surface)'};
+        color:${tab==='survival'?'#fff':'var(--muted)'};
+        border-color:${tab==='survival'?'var(--red)':'var(--border)'};
+      ">⏳ SURVIE</button>
+    </div>
+    <div id="lbContent" style="min-height:120px;">
+      <div style="text-align:center;padding:20px;color:var(--muted);">
+        <div style="font-size:24px;animation:robotBreathe 1.5s infinite">⏳</div>
+        <div style="font-size:12px;margin-top:8px;">Chargement…</div>
+      </div>
     </div>`;
   openModal();
 
-  try {
-    const { fetchLeaderboard, isOnlineLeaderboard } = await import('./leaderboard.js');
-    const entries = await fetchLeaderboard();
-    const medals = ['🥇','🥈','🥉'];
-    const onlineBadge = isOnlineLeaderboard()
-      ? `<div style="text-align:center;font-size:10px;color:var(--green);margin-bottom:10px;font-weight:700;">🌐 Classement en ligne</div>`
-      : `<div style="text-align:center;font-size:10px;color:var(--muted);margin-bottom:10px;font-weight:700;">📱 Classement local</div>`;
-    const rows = entries.length === 0
-      ? `<p style="text-align:center;color:var(--muted);padding:20px;">Aucune partie encore.</p>`
-      : entries.map((e, i) =>
-          `<div class="lb-row">
-            <div class="lb-rank">${medals[i] || `#${i + 1}`}</div>
-            <div class="lb-name">${e.name}</div>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-              <div class="elo-badge">ELO ${e.elo}</div>
-              ${e.wins > 0 ? `<div style="font-size:9px;color:var(--gold);font-weight:600;">${e.wins} victoires</div>` : ''}
-            </div>
-          </div>`
-        ).join('');
-    document.getElementById('modalContent').innerHTML = onlineBadge + rows + `
-      <button onclick="if(confirm('Effacer le classement local ?')){localStorage.removeItem('ls_elo');closeModalUI();}"
-        style="margin-top:12px;width:100%;padding:8px;background:transparent;border:1px solid rgba(229,48,48,0.3);border-radius:8px;font-size:11px;color:var(--red);cursor:pointer;font-family:'Space Grotesk',sans-serif;font-weight:600;">
-        🗑 Effacer le classement local
-      </button>`;
-  } catch(e) {
-    document.getElementById('modalContent').innerHTML = `<p style="text-align:center;color:var(--muted);padding:20px;">Impossible de charger le classement.</p>`;
-  }
+  /* Expose tab switcher globally */
+  window._lbShowTab = async (t) => {
+    /* Update tab styles */
+    const eloBtn = document.getElementById('lbTabElo');
+    const svBtn  = document.getElementById('lbTabSurvival');
+    if (eloBtn) {
+      eloBtn.style.background   = t==='elo' ? 'var(--blue-neon)' : 'var(--surface)';
+      eloBtn.style.color        = t==='elo' ? '#000' : 'var(--muted)';
+      eloBtn.style.borderColor  = t==='elo' ? 'var(--blue-neon)' : 'var(--border)';
+    }
+    if (svBtn) {
+      svBtn.style.background   = t==='survival' ? 'var(--red)' : 'var(--surface)';
+      svBtn.style.color        = t==='survival' ? '#fff' : 'var(--muted)';
+      svBtn.style.borderColor  = t==='survival' ? 'var(--red)' : 'var(--border)';
+    }
+
+    const content = document.getElementById('lbContent');
+    if (!content) return;
+    content.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);"><div style="font-size:20px;">⏳</div></div>`;
+
+    try {
+      const { fetchLeaderboard, fetchSurvivalLeaderboard, isOnlineLeaderboard } = await import('./leaderboard.js');
+      const medals = ['🥇','🥈','🥉'];
+      const onlineBadge = isOnlineLeaderboard()
+        ? `<div style="text-align:center;font-size:10px;color:var(--green);margin-bottom:10px;font-weight:700;">🌐 Classement en ligne</div>`
+        : `<div style="text-align:center;font-size:10px;color:var(--muted);margin-bottom:10px;font-weight:700;">📱 Classement local</div>`;
+
+      if (t === 'elo') {
+        const entries = await fetchLeaderboard();
+        const rows = entries.length === 0
+          ? `<p style="text-align:center;color:var(--muted);padding:20px;">Aucune partie encore.</p>`
+          : entries.map((e, i) =>
+              `<div class="lb-row">
+                <div class="lb-rank">${medals[i] || `#${i + 1}`}</div>
+                <div class="lb-name">${e.name}</div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+                  <div class="elo-badge">ELO ${e.elo}</div>
+                  ${e.wins > 0 ? `<div style="font-size:9px;color:var(--gold);font-weight:600;">${e.wins} victoires</div>` : ''}
+                </div>
+              </div>`
+            ).join('');
+        content.innerHTML = onlineBadge + rows + `
+          <button onclick="if(confirm('Effacer le classement local ?')){localStorage.removeItem('ls_elo');window._lbShowTab('elo');}"
+            style="margin-top:12px;width:100%;padding:8px;background:transparent;border:1px solid rgba(229,48,48,0.3);border-radius:8px;font-size:11px;color:var(--red);cursor:pointer;font-family:'Space Grotesk',sans-serif;font-weight:600;">
+            🗑 Effacer le classement local
+          </button>`;
+
+      } else {
+        const entries = await fetchSurvivalLeaderboard();
+        const myBest  = parseInt(localStorage.getItem('ls_survival_best') || '0');
+        const myName  = localStorage.getItem('ls_name') || '';
+        const myRank  = entries.findIndex(e => e.name === myName) + 1;
+
+        const rows = entries.length === 0
+          ? `<p style="text-align:center;color:var(--muted);padding:20px;">Aucun score encore — lance une partie !</p>`
+          : entries.map((e, i) => {
+              const isMe = myName && e.name === myName;
+              return `<div class="lb-row" style="${isMe ? 'border:1.5px solid var(--red);border-radius:12px;' : ''}">
+                <div class="lb-rank">${medals[i] || `#${i + 1}`}</div>
+                <div class="lb-name">${e.name}${isMe ? ' <span style="font-size:9px;color:var(--red);">● Toi</span>' : ''}</div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+                  <div style="font-family:'Share Tech Mono',monospace;font-size:14px;font-weight:700;color:var(--gold-neon);">${(e.survival_best||0).toLocaleString()}</div>
+                  <div style="font-size:9px;color:var(--muted);">pts</div>
+                </div>
+              </div>`;
+            }).join('');
+
+        const myBadge = myBest > 0 && myRank === 0
+          ? `<div style="margin-bottom:10px;padding:10px 14px;background:rgba(229,48,48,0.08);border:1px solid rgba(229,48,48,0.25);border-radius:12px;display:flex;justify-content:space-between;align-items:center;">
+               <span style="font-size:12px;color:var(--muted);">Ton best (hors top 10)</span>
+               <span style="font-family:'Share Tech Mono',monospace;font-weight:700;color:var(--red);">${myBest.toLocaleString()} pts</span>
+             </div>`
+          : '';
+
+        content.innerHTML = onlineBadge + myBadge + rows;
+      }
+    } catch(e) {
+      const content2 = document.getElementById('lbContent');
+      if (content2) content2.innerHTML = `<p style="text-align:center;color:var(--muted);padding:20px;">Impossible de charger le classement.</p>`;
+    }
+  };
+
+  /* Charger l'onglet initial */
+  window._lbShowTab(tab);
 }
 
 export function showDonation() {

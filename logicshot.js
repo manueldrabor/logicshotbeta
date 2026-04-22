@@ -15,7 +15,6 @@ import {
   submitAnswer, tapOrderBtn, npPress, npNeg, npDel, revealBlind,
   activateSuper, storyLevelToDiff, startAbsentCheck
 } from './battle.js';
-import { startSurvival, svPress, svNeg, svDel, svSubmit, svShare } from './survival.js';
 
 /* ══ EXPOSE GLOBALS (pour les onclick inline restants) ══ */
 window._goSplash = goSplash;
@@ -60,14 +59,6 @@ window.startJoinRoom = startJoinRoom;
 window.copyRoomCode = copyRoomCode;
 window.shareRoomCode = shareRoomCode;
 window.cancelOnline = cancelOnline;
-
-/* ══ SURVIE INFINIE ══ */
-window.startSurvivalMode = () => { stopMenuMusic(); startSurvival(); };
-window.svPress  = svPress;
-window.svNeg    = svNeg;
-window.svDel    = svDel;
-window.svSubmit = svSubmit;
-window.svShare  = svShare;
 
 /* ══ NARRATIFS ══ */
 const NARRATIVES = {
@@ -397,11 +388,11 @@ function showTutorial() {
   tutorialStep = 0;
   renderTutorialStep();
   document.getElementById('screenTutorial')?.classList.remove('hidden');
-  document.querySelectorAll('.screen:not(#screenTutorial)').forEach(s => s.classList.add('hidden'));
 }
 
 function closeTutorial() {
   document.getElementById('screenTutorial')?.classList.add('hidden');
+}
   showScreen('screenSplash');
 }
 
