@@ -84,6 +84,7 @@ export async function reserveName(wantedName) {
     Save.savePlayerName(finalName);
     return finalName;
   } catch(e) {
+    if (e.message === 'NAME_TAKEN') throw e; // ne pas avaler cette erreur
     console.warn('reserveName offline — fallback local', e);
     Save.savePlayerName(wantedName);
     return wantedName;
