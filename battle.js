@@ -224,7 +224,7 @@ function startTimer(round, absoluteStart) {
   _timerEndMsRef.val = (absoluteStart || Date.now()) + round.time * 1000;
   let _pauseStart = 0, _pauseOffset = 0;
   State.timerInterval = setInterval(() => {
-    if (State.isPaused || State.waitingForAbsent) { if (!_pauseStart) _pauseStart = Date.now(); return; }
+    if (State.isPaused) { if (!_pauseStart) _pauseStart = Date.now(); return; }
     if (_pauseStart) { _pauseOffset += Date.now() - _pauseStart; _pauseStart = 0; }
     State.timeLeft = Math.max(0, (_timerEndMsRef.val + _pauseOffset - Date.now()) / 1000);
     updateTimerUI(State.timeLeft, round.time);
@@ -699,56 +699,29 @@ function handleVisibility() {
   const hidden = document.hidden;
   State.players.filter(p => !p.isAI && !p.isRemote && !p.hasQuit).forEach(p => {
     if (hidden && !p.isAbsent) {
+      /* Départ en arrière-plan : pénalité immédiate (garantit que finishBattle
+         verra les bons HP même si le round se termine avant le retour) */
       p.isAbsent = true;
       setAbsentBadge(p.id, true);
       sfx.absent();
-
+      if (!State.roundActive) return; /* entre deux rounds — badge seulement, pas de pénalité */
+      p.hp = Math.max(0, p.hp - C.ABSENT_PENALTY);
+      updateHP(p);
+      showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--red)');
+      sfx.wrong();
       if (State.gameMode === 'online') {
-        /* Online : pénalité HP seulement si round en cours */
-        if (State.roundActive) {
-          p.hp = Math.max(0, p.hp - C.ABSENT_PENALTY);
-          updateHP(p);
-          showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--red)');
-          sfx.wrong();
-        }
-        /* Geler timer + notifier adversaire — même entre deux rounds */
-        State.waitingForAbsent = true;
         State.onlineAdapter?.broadcastAbsentPenalty(p.hp);
-
-        if (p.hp <= 0 && State.roundActive) {
-          State.roundActive = false;
-          clearInterval(State.timerInterval);
-          State.waitingForAbsent = false;
-          showFeedback(`💀 ${p.name} a mis le jeu en arrière-plan — −${C.ABSENT_PENALTY} HP · KO !`, 'fail');
-          setTimeout(() => finishBattle(), 5000);
-        }
-      } else {
-        /* Mode offline : entre deux rounds → badge seulement, pas de pénalité */
-        if (!State.roundActive) return;
-        p.hp = Math.max(0, p.hp - C.ABSENT_PENALTY);
-        updateHP(p);
-        showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--red)');
-        sfx.wrong();
-        if (p.hp <= 0) {
-          State.roundActive = false;
-          clearInterval(State.timerInterval);
-          showFeedback(`💀 ${p.name} a mis le jeu en arrière-plan — −${C.ABSENT_PENALTY} HP · KO !`, 'fail');
-          setTimeout(() => finishBattle(), 5000);
-        }
       }
-
+      if (p.hp <= 0) {
+        State.roundActive = false;
+        clearInterval(State.timerInterval);
+        showFeedback(`💀 ${p.name} a mis le jeu en arrière-plan — −${C.ABSENT_PENALTY} HP · KO !`, 'fail');
+        setTimeout(() => finishBattle(), 5000);
+      }
     } else if (!hidden && p.isAbsent) {
+      /* Retour : juste effacer le badge — la pénalité a déjà été appliquée au départ */
       p.isAbsent = false;
       setAbsentBadge(p.id, false);
-
-      if (State.gameMode === 'online') {
-        State.waitingForAbsent = false;
-        State.onlineAdapter?.broadcastPlayerReturned?.();
-        /* Message de synchronisation + rappel de la pénalité */
-        const penaltyMsg = State.roundActive ? ` · −${C.ABSENT_PENALTY} HP appliqués` : '';
-        showFeedback(`🔄 Synchronisation des résultats${penaltyMsg} — reprise !`, 'draw');
-        setTimeout(() => hideFeedback(), 3000);
-      }
     }
   });
 }
@@ -759,12 +732,13 @@ export function finishBattle(forceQuit = false) {
   if (_battleFinished) return;
 
   /* ── ONLINE : l'invité ne décide plus seul ── */
-  if (State.gameMode === 'online' && !State.isHost && !forceQuit) {
+  if (State.gameMode === 'online' && !State.isHost && !forceQuit && !_fromMatchResult) {
     _battleFinished = true;
     clearAll();
     showFeedback('⏳ Synchronisation du résultat…', 'draw');
     return;
   }
+  _fromMatchResult = false; /* reset après usage */
 
   _battleFinished = true;
 
@@ -943,20 +917,16 @@ export function clearAll() {
   clearInterval(State.timerInterval);
   clearTimeout(State.shieldExpireTimer);
   clearTimeout(State.aiShieldExpireTimer);
-  clearTimeout(_forfeitTimer);
-  clearInterval(_forfeitInterval);
-  _forfeitTimer = null;
-  _forfeitInterval = null;
   clearPeriodicSync();
-  State.isPaused = false;
-  State.roundActive = false;
-  State.waitingForAbsent = false;
+  State.isPaused = false; State.roundActive = false;
   State.playerShieldActive = false; State.aiShieldActive = false;
   document.getElementById('pauseOverlay')?.classList.add('hidden');
 }
 
 /* FIX double finishBattle : flag global réinitialisé à chaque nouvelle partie */
 let _battleFinished = false;
+/* FIX guest freeze : permet à receiveMatchResult de contourner le guard online */
+let _fromMatchResult = false;
 
 /* ══════════════════════════════════════
    ONLINE MODE — fonctions exportées
@@ -969,6 +939,7 @@ export function receiveMatchResult(data) {
   const localP = State.players.find(p => !p.isAI && !p.isRemote);
   const opp    = State.players.find(p => p.isRemote);
 
+  /* Synchroniser les HP officiels envoyés par l'hôte */
   if (localP && typeof data.localHp === 'number') {
     localP.hp = data.localHp;
     updateHP(localP);
@@ -980,10 +951,16 @@ export function receiveMatchResult(data) {
 
   clearAll();
   showFeedback(data.message || 'Fin du combat', 'ok');
+
+  /* Permettre à finishBattle de s'exécuter complètement pour l'invité
+     (_battleFinished est déjà true depuis l'early-return, on le réinitialise) */
+  _battleFinished = false;
+  _fromMatchResult = true;
   setTimeout(() => finishBattle(false), 1200);
 }
 export function beginOnlineBattle(myName, opponentName, rounds) {
   _battleFinished = false; /* FIX : reset du guard pour cette nouvelle partie */
+  _fromMatchResult = false;
   pauseMenuMusicForBattle();
   State.gameMode = 'online';
   State.unlockedSupers = { flash: true, glitch: true, shield: true };
@@ -1313,78 +1290,20 @@ export function receiveOpponentQuit(oppName) {
   setTimeout(() => finishBattle(false), 2500);
 }
 
-/* L'adversaire est allé en arrière-plan → sync HP + geler timer + compte à rebours forfait */
-let _forfeitTimer    = null;
-let _forfeitInterval = null;
-
+/* L'adversaire est allé en arrière-plan → sync ses HP localement */
 export function receiveOpponentAbsent(newHp) {
   const opp = State.players.find(p => p.isRemote);
   if (!opp) return;
   opp.hp = Math.max(0, newHp);
   updateHP(opp);
   showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--gold)');
+  showFeedback(`👁️ ${opp.name} est allé en arrière-plan — −${C.ABSENT_PENALTY} HP !`, 'ok');
   sfx.wrong();
-
   if (opp.hp <= 0) {
-    State.roundActive = false;
-    clearInterval(State.timerInterval);
+    State.roundActive = false; clearInterval(State.timerInterval);
     showFeedback(`💀 ${opp.name} a mis le jeu en arrière-plan · KO !`, 'ok');
-    setTimeout(() => finishBattle(false), 3000);
-    return;
+    setTimeout(() => finishBattle(false), 5000);
   }
-
-  /* Geler le timer en attendant le retour */
-  State.waitingForAbsent = true;
-
-  /* Compte à rebours forfait — 15 secondes */
-  clearTimeout(_forfeitTimer);
-  clearInterval(_forfeitInterval);
-  let remaining = 15;
-  const oppName = opp.name;
-
-  const _tick = () => {
-    if (!State.waitingForAbsent) return; /* annulé par retour */
-    if (remaining > 0) {
-      showFeedback(
-        `⏳ ${oppName} est absent · ${remaining}s · Forfait si pas de retour…`,
-        'draw'
-      );
-    }
-  };
-  _tick();
-  _forfeitInterval = setInterval(() => {
-    remaining--;
-    _tick();
-    if (remaining <= 0) clearInterval(_forfeitInterval);
-  }, 1000);
-
-  _forfeitTimer = setTimeout(() => {
-    if (!State.waitingForAbsent) return; /* joueur revenu entretemps */
-    clearInterval(_forfeitInterval);
-    State.waitingForAbsent = false;
-    /* KO par forfait */
-    opp.hp = 0;
-    updateHP(opp);
-    State.roundActive = false;
-    clearInterval(State.timerInterval);
-    showImpactFX('🏳️ FORFAIT', 'var(--red)');
-    showFeedback(`🏳️ ${oppName} n'est pas revenu — Victoire par forfait !`, 'ok');
-    sfx.win();
-    setTimeout(() => finishBattle(false), 2500);
-  }, 15000);
-}
-
-/* L'adversaire est revenu → annuler le forfait, reprendre le timer */
-export function receiveOpponentReturned() {
-  clearTimeout(_forfeitTimer);
-  clearInterval(_forfeitInterval);
-  _forfeitTimer = null;
-  _forfeitInterval = null;
-  if (!State.waitingForAbsent) return;
-  State.waitingForAbsent = false;
-  const opp = State.players.find(p => p.isRemote);
-  showFeedback(`✅ ${opp?.name || 'Adversaire'} est de retour — reprise !`, 'ok');
-  setTimeout(() => hideFeedback(), 2500);
 }
 
 /* Sync périodique du timer (hôte → invité, toutes les 3s) */

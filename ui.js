@@ -10,9 +10,27 @@ const ALL_SCREENS = [
   'screenNarrative','screenOath','screenBattle','screenResults','screenTutorial',
   'screenOnlineMenu','screenOnlineLobby','screenSurvival'
 ];
+function setParticlesOpacity(value) {
+  const canvas = document.getElementById('cyberCanvas');
+  if (!canvas) return;
+  canvas.style.transition = 'opacity 220ms ease';
+  canvas.style.opacity = value;
+}
+
 export function showScreen(id) {
   ALL_SCREENS.forEach(s => document.getElementById(s)?.classList.add('hidden'));
   document.getElementById(id)?.classList.remove('hidden');
+
+  const battleScreens = ['screenBattle', 'screenSurvival'];
+  const lowParticlesScreens = ['screenNarrative', 'screenOath', 'screenResults'];
+
+  if (battleScreens.includes(id)) {
+    setParticlesOpacity('0.18');
+  } else if (lowParticlesScreens.includes(id)) {
+    setParticlesOpacity('0.28');
+  } else {
+    setParticlesOpacity('');
+  }
 }
 
 /* ══ THÈME ══ */
@@ -788,7 +806,7 @@ export function initCanvas() {
       vy:   (Math.random() - 0.5) * 0.00007,
       r:    Math.random() * 2.8 + 1.2,
       c:    cols[i % cols.length],
-      a:    Math.random() * 0.05 + 0.04,
+      a:    Math.random() * 0.06 + 0.05,
       life: Math.random() * 800 + 500,
       ml:   800
     });
@@ -809,12 +827,12 @@ export function initCanvas() {
         if (d < LINE_DIST) {
           const strength = 1 - d / LINE_DIST;
           /* Opacité de la ligne proportionnelle à la proximité */
-          const lineAlpha = strength * 0.15;
+          const lineAlpha = strength * 0.20;
           ctx.beginPath();
           ctx.moveTo(pts[i].x * W, pts[i].y * H);
           ctx.lineTo(pts[j].x * W, pts[j].y * H);
           ctx.strokeStyle = pts[i].c + lineAlpha + ')';
-          ctx.lineWidth   = strength * 1.2;
+          ctx.lineWidth   = strength * 1.3;
           ctx.stroke();
         }
       }
