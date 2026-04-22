@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════
    survival.js — Mode Survie Infinie
-   Bonne réponse → +8s · Erreur → -5s · Timeout → -10s
-   Score x combo · Best score sauvegardé en ligne (Supabase)
+   Bonne réponse → +15s · Erreur → -3s
+   Score x combo · Best score Supabase
 ══════════════════════════════════════ */
 import { State, Save } from './state.js';
 import { sfx } from './audio.js';
@@ -16,7 +16,7 @@ async function _supaFetch(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
     headers: {
-      apikey: SUPABASE_URL ? SUPABASE_KEY : '',
+      apikey: SUPABASE_KEY,
       Authorization: `Bearer ${SUPABASE_KEY}`,
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
@@ -28,7 +28,6 @@ async function _supaFetch(path, opts = {}) {
   return txt ? JSON.parse(txt) : [];
 }
 
-/* Charge le meilleur score en ligne (fallback localStorage) */
 async function _loadBestOnline() {
   const deviceId = Save.getDeviceId();
   try {
@@ -36,18 +35,14 @@ async function _loadBestOnline() {
       `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=survival_best`
     );
     if (rows.length > 0 && rows[0].survival_best > 0) {
-      /* Mettre à jour le localStorage si le cloud est plus élevé */
-      const cloudBest = rows[0].survival_best;
-      const localBest = parseInt(localStorage.getItem('ls_survival_best') || '0');
-      const best = Math.max(cloudBest, localBest);
+      const best = Math.max(rows[0].survival_best, parseInt(localStorage.getItem('ls_survival_best') || '0'));
       localStorage.setItem('ls_survival_best', best.toString());
       return best;
     }
-  } catch(e) { /* offline → fallback local */ }
+  } catch(e) { /* offline */ }
   return parseInt(localStorage.getItem('ls_survival_best') || '0');
 }
 
-/* Sauvegarde le best score en ligne (fire-and-forget) */
 async function _saveBestOnline(score) {
   localStorage.setItem('ls_survival_best', score.toString());
   const deviceId = Save.getDeviceId();
@@ -55,16 +50,12 @@ async function _saveBestOnline(score) {
     const rows = await _supaFetch(
       `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=id,survival_best`
     );
-    if (rows.length === 0) return; /* pas de ligne → updateElo créera la ligne plus tard */
-    const row = rows[0];
-    if (score > (row.survival_best || 0)) {
-      await _supaFetch(`leaderboard?id=eq.${row.id}`, {
+    if (rows.length === 0) return;
+    if (score > (rows[0].survival_best || 0)) {
+      await _supaFetch(`leaderboard?id=eq.${rows[0].id}`, {
         method: 'PATCH',
         headers: { Prefer: '' },
-        body: JSON.stringify({
-          survival_best: score,
-          updated_at: new Date().toISOString()
-        })
+        body: JSON.stringify({ survival_best: score, updated_at: new Date().toISOString() })
       });
     }
   } catch(e) { /* fail silently */ }
@@ -72,38 +63,44 @@ async function _saveBestOnline(score) {
 
 /* ══ CONSTANTES ══ */
 const TIME_START   = 30;
-const TIME_CORRECT = 8;
-const TIME_WRONG   = 5;
-const TIME_TIMEOUT = 10;
+const TIME_CORRECT = 15;
+const TIME_WRONG   = 3;
 const TIME_CAP     = 60;
 const SCORE_BASE   = 100;
 
 /* ══ STATE LOCAL ══ */
-let _timeBank   = TIME_START;
-let _score      = 0;
-let _combo      = 0;
-let _correct    = 0;
-let _timerIv    = null;
-let _round      = null;
-let _rounds     = [];
-let _roundIdx   = 0;
-let _active     = false;
-let _inputVal   = '';
-let _bestScore  = 0;   /* chargé depuis Supabase au démarrage */
+let _timeBank  = TIME_START;
+let _score     = 0;
+let _combo     = 0;
+let _correct   = 0;
+let _timerIv   = null;
+let _round     = null;
+let _rounds    = [];
+let _roundIdx  = 0;
+let _active    = false;
+let _inputVal  = '';
+let _bestScore = 0;
 
 /* ══ DÉMARRAGE ══ */
 export async function startSurvival() {
-  _timeBank  = TIME_START;
-  _score     = 0;
-  _combo     = 0;
-  _correct   = 0;
-  _roundIdx  = 0;
-  _active    = false;
-  _inputVal  = '';
-  _rounds    = [];
+  /* Reset état */
+  clearInterval(_timerIv);
+  _timeBank = TIME_START;
+  _score    = 0;
+  _combo    = 0;
+  _correct  = 0;
+  _roundIdx = 0;
+  _active   = false;
+  _inputVal = '';
+  _rounds   = [];
 
-  /* Charger le best score en ligne avant de commencer */
   _bestScore = await _loadBestOnline();
+
+  /* ── Reset UI — masquer game over, montrer question ── */
+  const goBox = document.getElementById('svGameOverBox');
+  const qBox  = document.getElementById('svQuestionBox');
+  if (goBox) goBox.style.display = 'none';
+  if (qBox)  qBox.style.display  = 'flex';
 
   sfx.battleStart?.();
   showScreen('screenSurvival');
@@ -130,7 +127,7 @@ function _nextQuestion() {
 
 /* ══ DÉCOMPTE ══ */
 function _startBank() {
-  const startMs    = Date.now();
+  const startMs     = Date.now();
   const bankAtStart = _timeBank;
 
   _timerIv = setInterval(() => {
@@ -165,27 +162,29 @@ function _onAnswer() {
       `✅ +${points} pts · +${TIME_CORRECT}s${_combo >= 2 ? ` · ×${mult} COMBO !` : ''}`,
       '#00ff88'
     );
+    _updateBank();
+    _updateScore();
+    setTimeout(() => {
+      if (_timeBank <= 0) { _gameOver(); return; }
+      _nextQuestion();
+    }, 1100);
   } else {
     _combo    = 0;
     _timeBank = Math.max(0, _timeBank - TIME_WRONG);
     sfx.wrong?.();
-    /* Afficher la bonne réponse clairement */
     _showFeedback(`❌ Réponse : ${_round.answer} · −${TIME_WRONG}s`, '#ff4444');
+    /* Afficher la bonne réponse en doré pendant 5s */
     const fa = document.getElementById('svInput');
     if (fa) { fa.textContent = `= ${_round.answer}`; fa.style.color = 'var(--gold)'; }
+    _updateBank();
+    _updateScore();
+    setTimeout(() => {
+      const fa2 = document.getElementById('svInput');
+      if (fa2) fa2.style.color = '';
+      if (_timeBank <= 0) { _gameOver(); return; }
+      _nextQuestion();
+    }, 5000);
   }
-
-  _updateBank();
-  _updateScore();
-
-  /* Bonne réponse → 1.1s · Mauvaise réponse → 5s pour apprendre */
-  const delay = correct ? 1100 : 5000;
-  setTimeout(() => {
-    const fa = document.getElementById('svInput');
-    if (fa) fa.style.color = '';
-    if (_timeBank <= 0) { _gameOver(); return; }
-    _nextQuestion();
-  }, delay);
 }
 
 /* ══ TIMEOUT ══ */
@@ -193,7 +192,7 @@ function _onTimeout() {
   _combo    = 0;
   _timeBank = 0;
   sfx.wrong?.();
-  _showFeedback(`⏰ Temps ! = ${_round.answer}`, '#ff4444');
+  _showFeedback(`⏰ Temps écoulé ! = ${_round.answer}`, '#ff4444');
   _updateBank();
   setTimeout(() => _gameOver(), 1200);
 }
@@ -206,7 +205,7 @@ async function _gameOver() {
   const isNew = _score > _bestScore;
   if (isNew) {
     _bestScore = _score;
-    _saveBestOnline(_score); /* fire-and-forget */
+    _saveBestOnline(_score);
   }
 
   const xpGain = Math.max(10, Math.floor(_score / 50));
@@ -245,6 +244,7 @@ function _renderQuestion() {
 
   el('svFormula').textContent  = _round.formula;
   el('svInput').textContent    = '?';
+  el('svInput').style.color    = '';
   el('svFeedback').textContent = '';
   el('svDiff').textContent     = diffLabel[_round.difficulty] || '';
   el('svDiff').style.color     = diffColor[_round.difficulty] || '';
@@ -257,7 +257,7 @@ function _updateBank() {
   const el  = document.getElementById('svBank');
   const bar = document.getElementById('svBankBar');
   if (!el) return;
-  const t   = Math.max(0, _timeBank);
+  const t = Math.max(0, _timeBank);
   el.textContent = t.toFixed(1) + 's';
   if (bar) {
     bar.style.width      = Math.min(100, (t / TIME_CAP) * 100) + '%';

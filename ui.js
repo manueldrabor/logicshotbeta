@@ -8,7 +8,7 @@ import { sfx } from './audio.js';
 const ALL_SCREENS = [
   'screenSplash','screenMatchmaking','screenDiffSelect','screenStory',
   'screenNarrative','screenOath','screenBattle','screenResults','screenTutorial',
-  'screenOnlineMenu','screenOnlineLobby'
+  'screenOnlineMenu','screenOnlineLobby','screenSurvival'
 ];
 export function showScreen(id) {
   ALL_SCREENS.forEach(s => document.getElementById(s)?.classList.add('hidden'));
@@ -766,23 +766,84 @@ export function initCanvas() {
   resize();
   window.addEventListener('resize', resize);
 
-  const cols = ['rgba(0,180,255,', 'rgba(245,196,0,', 'rgba(0,184,200,', 'rgba(0,212,255,'];
-  for (let i = 0; i < 55; i++) {
-    pts.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.0002, vy: (Math.random() - 0.5) * 0.0002, r: Math.random() * 1.4 + 0.3, c: cols[i % 4], a: Math.random() * 0.5 + 0.1, life: Math.random() * 200 + 100, ml: 200 });
+  /* ── Couleurs plus vives et saturées ── */
+  const cols = [
+    'rgba(0,180,255,',    /* cyan néon */
+    'rgba(245,196,0,',    /* or néon */
+    'rgba(0,255,200,',    /* vert-cyan */
+    'rgba(140,80,255,',   /* violet */
+    'rgba(255,80,120,'    /* rose */
+  ];
+
+  /* ── 80 particules au lieu de 55, plus grosses et plus rapides ── */
+  for (let i = 0; i < 80; i++) {
+    pts.push({
+      x:    Math.random(),
+      y:    Math.random(),
+      vx:   (Math.random() - 0.5) * 0.00055,   /* 2.75× plus rapides */
+      vy:   (Math.random() - 0.5) * 0.00055,
+      r:    Math.random() * 2.8 + 1.2,          /* rayon 1.2–4px (était 0.3–1.7) */
+      c:    cols[i % cols.length],
+      a:    Math.random() * 0.45 + 0.45,        /* alpha 0.45–0.90 (était 0.1–0.6) */
+      life: Math.random() * 300 + 150,
+      ml:   300
+    });
   }
+
+  /* ── Distance max pour tracer une ligne entre deux particules ── */
+  const LINE_DIST = 0.13; /* fraction de la largeur d'écran */
 
   function draw() {
     ctx.clearRect(0, 0, W, H);
+
+    /* ── Lignes de connexion entre particules proches ── */
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[i].x - pts[j].x;
+        const dy = pts[i].y - pts[j].y;
+        const d  = Math.sqrt(dx * dx + dy * dy);
+        if (d < LINE_DIST) {
+          const strength = 1 - d / LINE_DIST;
+          /* Opacité de la ligne proportionnelle à la proximité */
+          const lineAlpha = strength * 0.35;
+          ctx.beginPath();
+          ctx.moveTo(pts[i].x * W, pts[i].y * H);
+          ctx.lineTo(pts[j].x * W, pts[j].y * H);
+          ctx.strokeStyle = pts[i].c + lineAlpha + ')';
+          ctx.lineWidth   = strength * 1.2;
+          ctx.stroke();
+        }
+      }
+    }
+
+    /* ── Particules avec halo/glow ── */
     pts.forEach(p => {
       p.x += p.vx; p.y += p.vy; p.life--;
       if (p.x < 0 || p.x > 1) p.vx *= -1;
       if (p.y < 0 || p.y > 1) p.vy *= -1;
       if (p.life <= 0) { p.life = p.ml; p.x = Math.random(); p.y = Math.random(); }
+
+      const lifeFrac = p.life / p.ml;
+      const alpha    = p.a * lifeFrac;
+      const px = p.x * W, py = p.y * H;
+
+      /* Halo externe (glow doux) */
+      const grd = ctx.createRadialGradient(px, py, 0, px, py, p.r * 4);
+      grd.addColorStop(0,   p.c + (alpha * 0.7) + ')');
+      grd.addColorStop(0.4, p.c + (alpha * 0.3) + ')');
+      grd.addColorStop(1,   p.c + '0)');
       ctx.beginPath();
-      ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = p.c + (p.a * (p.life / p.ml)) + ')';
+      ctx.arc(px, py, p.r * 4, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+
+      /* Point central plein et brillant */
+      ctx.beginPath();
+      ctx.arc(px, py, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.c + Math.min(1, alpha * 1.4) + ')';
       ctx.fill();
     });
+
     requestAnimationFrame(draw);
   }
   draw();

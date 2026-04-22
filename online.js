@@ -171,10 +171,16 @@ function _setupAdapter() {
       /* L'hôte ne reçoit pas ses propres messages (self:false) — s'enregistrer directement */
       if (_isHost) {
         _ackRoundIndex = roundIndex;
+        _ackRoundFired = false; /* FIX : reset du guard pour ce nouveau round */
         _roundAcks.add(_myName);
         /* Fallback si l'invité ne répond pas dans 5s */
         clearTimeout(_ackTimeout);
-        _ackTimeout = setTimeout(() => { if (_roundAcks.size >= 1) _fireNextRound(); }, 5000);
+        _ackTimeout = setTimeout(() => {
+          if (_roundAcks.size >= 1 && !_ackRoundFired) {
+            _ackRoundFired = true;
+            _fireNextRound();
+          }
+        }, 5000);
       }
     },
     broadcastNextRound   : (roundIndex, nextAt) =>
@@ -240,6 +246,7 @@ function _handleMsg(data) {
       break;
     case 'guest_joined':    if (_isHost)  _onGuestJoined(data.name);  break;
     case 'game_start':      if (!_isHost) _onGameStart(data);          break;
+    case 'game_start_ack':  if (_isHost)  _onGameStartAck();           break;
     case 'player_ready':    _onPlayerReady(data.name);                 break;
     case 'start_at':        _onStartAt(data.startAt);                  break;
     case 'correct_answer':
@@ -255,6 +262,9 @@ function _handleMsg(data) {
 }
 
 /* ── Invité a rejoint (hôte reçoit) — on NE lance pas automatiquement, on attend PRÊT ── */
+let _hostPendingBattle = null;
+let _hostBattleFallback = null;
+
 function _onGuestJoined(guestName) {
   _oppName = guestName;
   const el = document.getElementById('lobbyStatus');
@@ -265,8 +275,20 @@ function _onGuestJoined(guestName) {
   setTimeout(() => {
     const rounds = generateRounds();
     State.allRounds = rounds;
+    /* FIX race condition : l'hôte envoie game_start, puis attend l'ACK de l'invité
+       (game_start_ack) avant de lancer son propre combat. Sans ça, l'hôte peut
+       appeler _launchBattle avant que l'invité ait reçu les rounds. */
     _send({ type: 'game_start', rounds, hostName: _myName, guestName });
-    _launchBattle(_myName, guestName, rounds);
+    _hostPendingBattle = { myName: _myName, guestName, rounds };
+    /* Fallback : si pas d'ACK dans 3s (réseau très lent), on lance quand même */
+    clearTimeout(_hostBattleFallback);
+    _hostBattleFallback = setTimeout(() => {
+      if (_hostPendingBattle) {
+        const { myName, guestName: gn, rounds: r } = _hostPendingBattle;
+        _hostPendingBattle = null;
+        _launchBattle(myName, gn, r);
+      }
+    }, 3000);
   }, 2000);
 }
 
@@ -277,7 +299,19 @@ function _onGameStart(data) {
   const el = document.getElementById('lobbyStatus');
   if (el) el.innerHTML =
     `<span style="color:var(--gold);font-weight:700;">⚔️ Le combat commence !</span>`;
+  /* FIX race condition : l'invité confirme la réception avant de lancer le combat */
+  _send({ type: 'game_start_ack', name: _myName });
   setTimeout(() => _launchBattle(_myName, data.hostName, data.rounds), 900);
+}
+
+/* ── Hôte reçoit la confirmation de l'invité → lancer son propre combat ── */
+function _onGameStartAck() {
+  clearTimeout(_hostBattleFallback);
+  if (_hostPendingBattle) {
+    const { myName, guestName, rounds } = _hostPendingBattle;
+    _hostPendingBattle = null;
+    _launchBattle(myName, guestName, rounds);
+  }
 }
 
 /* ── Lance le combat ── */
@@ -364,11 +398,15 @@ function _onOpponentSuper(type) {
 let _roundAcks = new Set();
 let _ackRoundIndex = -1;
 let _ackTimeout = null;
+let _ackRoundFired = false; /* FIX : guard anti-double-déclenchement */
 
 function _onRoundAck(data) {
   if (data.roundIndex !== _ackRoundIndex) return;
   _roundAcks.add(data.name);
-  if (_roundAcks.size >= 2) _fireNextRound();
+  if (_roundAcks.size >= 2 && !_ackRoundFired) {
+    _ackRoundFired = true;
+    _fireNextRound();
+  }
 }
 
 function _fireNextRound() {
@@ -376,6 +414,7 @@ function _fireNextRound() {
   _ackTimeout = null;
   const roundIndex = _ackRoundIndex;
   _ackRoundIndex = -1;
+  _ackRoundFired = false; /* FIX : reset pour le prochain round */
   _roundAcks.clear();
   import('./battle.js').then(({ fireNextRoundFromHost }) =>
     fireNextRoundFromHost(roundIndex)
@@ -421,11 +460,20 @@ export function cleanup() {
   clearInterval(_pingIv);
   clearInterval(_pingCheck);
   clearTimeout(_ackTimeout);
+  clearTimeout(_hostBattleFallback); /* FIX : annuler le fallback game_start */
   _pingIv = _pingCheck = _ackTimeout = null;
+  _hostPendingBattle = null;
+  _hostBattleFallback = null;
   _readyPlayers.clear();
   _roundAcks.clear();
   _ackRoundIndex = -1;
+  _ackRoundFired = false;   /* FIX : reset guard anti-double-fire */
   _msgQueue.length = 0;
+  _subscribed = false;      /* FIX : reset pour éviter qu'une revanche réutilise l'ancien état */
+  _clockOffset = 0;
+  _syncProbeT1 = 0;
+  _syncResolve = null;
+  _estimatedLatency = 200;
 
   if (_channel) {
     /* Envoyer disconnect AVANT de passer _subscribed à false */

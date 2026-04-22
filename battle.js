@@ -81,6 +81,7 @@ function pickMechanic(diff) {
 
 /* ══ BEGIN BATTLE ══ */
 export function beginBattle() {
+  _battleFinished = false; /* FIX : reset du guard pour cette nouvelle partie */
   pauseMenuMusicForBattle();
   State.players = [
     makePlayer('p1', State.oathNames[0] || 'Joueur', 'p1c', pickSprite(), false),
@@ -727,6 +728,11 @@ function handleVisibility() {
 
 /* ══ FINISH ══ */
 export function finishBattle(forceQuit = false) {
+  /* FIX : guard anti-double-appel (peut arriver si les 2 joueurs terminent
+     le dernier round simultanément en online, ou via receiveOpponentQuit + timer) */
+  if (_battleFinished) return;
+  _battleFinished = true;
+
   clearAll();
   document.removeEventListener('visibilitychange', handleVisibility);
   const sorted = [...State.players].sort((a, b) => b.hp - a.hp);
@@ -895,12 +901,16 @@ export function clearAll() {
   document.getElementById('pauseOverlay')?.classList.add('hidden');
 }
 
+/* FIX double finishBattle : flag global réinitialisé à chaque nouvelle partie */
+let _battleFinished = false;
+
 /* ══════════════════════════════════════
    ONLINE MODE — fonctions exportées
    appelées par online.js via import()
 ══════════════════════════════════════ */
 
 export function beginOnlineBattle(myName, opponentName, rounds) {
+  _battleFinished = false; /* FIX : reset du guard pour cette nouvelle partie */
   pauseMenuMusicForBattle();
   State.gameMode = 'online';
   State.unlockedSupers = { flash: true, glitch: true, shield: true };
@@ -1076,27 +1086,33 @@ export function receiveStartAt(startAt) {
 /* Rounds 2-10 : chaque joueur envoie un ACK, l'hôte attend les 2 puis lance le countdown */
 function _onlineNextRound() {
   if (State.gameMode !== 'online') { loadRound(); return; }
-  /* Les deux envoient leur ACK */
-  State.onlineAdapter?.broadcastRoundAck(State.roundIndex);
+  /* FIX index ACK : à ce stade, State.roundIndex est déjà le NOUVEAU index
+     (incrémenté dans resolveCorrectAnswer ou advanceRound avant cet appel).
+     On envoie ce nouvel index pour que l'hôte et l'invité se synchronisent
+     sur le bon round à charger. */
+  const ackIndex = State.roundIndex;
+  State.onlineAdapter?.broadcastRoundAck(ackIndex);
   if (State.isHost) {
     /* L'hôte s'enregistre lui-même ET attend l'ACK de l'invité via online.js/_onRoundAck */
     /* fireNextRoundFromHost sera appelé par online.js quand les 2 ACKs sont reçus */
     /* Fallback si l'invité ne répond pas dans 4s */
+    clearTimeout(State._ackFallback);
     State._ackFallback = setTimeout(() => {
       if (State.gameMode === 'online' && State.roundActive === false) {
-        fireNextRoundFromHost(State.roundIndex);
+        fireNextRoundFromHost(ackIndex);
       }
     }, 4000);
   }
-  /* L'invité attend next_round — fallback local après 6s */
+  /* L'invité attend next_round — fallback local après 8s (FIX : augmenté de 6→8s
+     pour laisser le temps à l'hôte de faire le syncClock + envoyer next_round) */
   if (!State.isHost) {
-    State._waitingNextRound = State.roundIndex;
+    State._waitingNextRound = ackIndex;
     setTimeout(() => {
-      if (State._waitingNextRound === State.roundIndex) {
+      if (State._waitingNextRound === ackIndex) {
         State._waitingNextRound = -1;
         _onlineCountdownThenLoad(Date.now() + 3000, 'formula');
       }
-    }, 6000);
+    }, 8000);
   }
 }
 
@@ -1104,17 +1120,21 @@ function _onlineNextRound() {
 export function fireNextRoundFromHost(roundIndex) {
   clearTimeout(State._ackFallback);
   if (roundIndex !== State.roundIndex) return;
-  /* Mesure le RTT exact par handshake NTP, PUIS envoie nextAt.
-     nextAt = Date.now() + 3000 + rtt/2 :
-       - l'hôte attend rtt/2 ms de plus que le "vrai" t=0
-       - le message met rtt/2 ms à arriver chez l'invité
-       → les deux countdowns démarrent au même instant absolu */
-  const syncClock = State.onlineAdapter?._syncClock;
+  /* FIX clock sync : on force toujours un syncClock() avant d'envoyer nextAt.
+     Si le réseau est dégradé, le timeout d'1s dans _syncClock retourne 0
+     et on utilise _estimatedLatency comme fallback — ce qui est toujours
+     meilleur que d'ignorer complètement le décalage d'horloge. */
+  const adapter = State.onlineAdapter;
+  const syncClock = adapter?._syncClock;
   const doFire = () => {
     if (roundIndex !== State.roundIndex) return; /* guard si round changé pendant sync */
-    const rtt = (State.onlineAdapter?._getLatency?.() || 100) * 2;
+    const rtt = (adapter?._getLatency?.() || 100) * 2;
+    /* nextAt = maintenant + 3s + rtt/2 :
+       - l'hôte attend rtt/2 ms supplémentaires
+       - le message met rtt/2 ms à arriver chez l'invité
+       → les deux comptent à rebours depuis le même instant absolu */
     const nextAt = Date.now() + 3000 + Math.min(rtt / 2, 500);
-    State.onlineAdapter?.broadcastNextRound(State.roundIndex, nextAt);
+    adapter?.broadcastNextRound(State.roundIndex, nextAt);
     _onlineCountdownThenLoad(nextAt, 'formula');
   };
   if (syncClock) {
