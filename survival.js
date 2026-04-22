@@ -126,6 +126,7 @@ function _nextQuestion() {
   clearInterval(_timerIv);
   _inputVal = '';
   _active   = true;
+  _setInputsDisabled(false); /* réactiver boutons pour la nouvelle question */
 
   State.aiDifficulty = _correct < 8 ? 'easy' : _correct < 18 ? 'medium' : 'hard';
 
@@ -157,10 +158,25 @@ function _startBank() {
 }
 
 /* ══ RÉPONSE ══ */
+function _setInputsDisabled(disabled) {
+  /* Grise le bouton RÉPONSE et le numpad pendant les délais inter-questions */
+  const fireBtns = document.querySelectorAll('#svAnswerZone .fire-btn');
+  const numBtns  = document.querySelectorAll('#svNumpadZone .numpad-btn');
+  fireBtns.forEach(b => {
+    b.disabled = disabled;
+    b.style.opacity = disabled ? '0.4' : '';
+  });
+  numBtns.forEach(b => {
+    b.disabled = disabled;
+    b.style.opacity = disabled ? '0.4' : '';
+  });
+}
+
 function _onAnswer() {
   if (!_active || _inputVal === '') return;
   clearInterval(_timerIv);
   _active = false;
+  _setInputsDisabled(true); /* griser immédiatement pendant le délai inter-questions */
 
   const correct = parseInt(_inputVal, 10) === _round.answer;
 
@@ -205,6 +221,7 @@ function _onAnswer() {
 function _onTimeout() {
   _combo    = 0;
   _timeBank = 0;
+  _setInputsDisabled(true);
   sfx.wrong?.();
   _showFeedback(`⏰ Temps écoulé ! = ${_round.answer}`, '#ff4444');
   _updateBank();

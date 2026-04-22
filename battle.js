@@ -1064,13 +1064,16 @@ export function receiveMatchResult(data) {
   const localP = State.players.find(p => !p.isAI && !p.isRemote);
   const opp    = State.players.find(p => p.isRemote);
 
-  /* Synchroniser les HP officiels envoyés par l'hôte */
-  if (localP && typeof data.localHp === 'number') {
-    localP.hp = data.localHp;
+  /* FIX inversion HP hôte/invité :
+     L'hôte envoie localHp = SES HP, remoteHp = HP de l'invité.
+     Côté invité, localP = l'invité et opp = l'hôte.
+     Il faut donc affecter data.remoteHp à localP et data.localHp à opp. */
+  if (localP && typeof data.remoteHp === 'number') {
+    localP.hp = data.remoteHp;
     updateHP(localP);
   }
-  if (opp && typeof data.remoteHp === 'number') {
-    opp.hp = data.remoteHp;
+  if (opp && typeof data.localHp === 'number') {
+    opp.hp = data.localHp;
     updateHP(opp);
   }
 
@@ -1479,12 +1482,17 @@ export function receiveOpponentAbsent(newHp) {
 
   _showAbsentOverlay(opp.name);
 
+  /* FIX : annuler tout interval précédent avant d'en créer un nouveau
+     (évite l'accumulation d'intervals sur absences répétées → valeurs négatives) */
+  clearInterval(_absentCountIv);
+  _absentCountIv = null;
+
   /* Countdown 15s synchronisé */
   let remaining = 15;
   _absentCountIv = setInterval(() => {
     remaining--;
     const el = document.getElementById('absentCountdown');
-    if (el) el.textContent = remaining;
+    if (el) el.textContent = Math.max(0, remaining);
     if (remaining <= 0) { clearInterval(_absentCountIv); _absentCountIv = null; }
   }, 1000);
 
