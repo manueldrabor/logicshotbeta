@@ -15,7 +15,7 @@ import {
   submitAnswer, tapOrderBtn, npPress, npNeg, npDel, revealBlind,
   activateSuper, storyLevelToDiff, startAbsentCheck
 } from './battle.js';
-import { startSurvival, svPress, svNeg, svDel, svSubmit, svShare } from './survival.js';
+import { startSurvival, svPress, svNeg, svDel, svSubmit, svShare, svQuit } from './survival.js';
 
 /* ══ EXPOSE GLOBALS (pour les onclick inline restants) ══ */
 window._goSplash = goSplash;
@@ -68,6 +68,7 @@ window.svNeg    = svNeg;
 window.svDel    = svDel;
 window.svSubmit = svSubmit;
 window.svShare  = svShare;
+window.svQuit   = svQuit;
 
 /* ══ NARRATIFS ══ */
 const NARRATIVES = {
@@ -146,33 +147,28 @@ async function proceedMatchmaking() {
     const { reserveName } = await import('./leaderboard.js');
     const name = await reserveName(raw);
 
-    /* Informer si le nom a été modifié */
-    if (name !== raw) {
-      const inp = document.getElementById('mmInp0');
-      if (inp) inp.value = name;
-      /* Petit badge d'avertissement */
-      const box = document.querySelector('#screenMatchmaking .mm-box');
-      if (box) {
-        const warn = document.createElement('div');
-        warn.style.cssText = 'font-size:11px;color:var(--gold);text-align:center;margin-top:-8px;margin-bottom:4px;';
-        warn.textContent = `⚠️ "${raw}" déjà pris → tu t'appelles "${name}"`;
-        const existing = box.querySelector('.name-warn');
-        if (existing) existing.remove();
-        warn.className = 'name-warn';
-        box.insertBefore(warn, box.querySelector('.res-btn'));
-        /* Laisser lire 1.5 s puis continuer */
-        await new Promise(r => setTimeout(r, 1500));
-      }
-    }
-
     State.oathNames = [name];
     if (State.gameMode === 'story') openStoryMap();
     else showScreen('screenOath');
   } catch(e) {
+    if (e.message === 'NAME_TAKEN') {
+      /* Nom déjà pris : afficher l'erreur, ne pas continuer */
+      const box = document.querySelector('#screenMatchmaking .mm-box');
+      if (box) {
+        const existing = box.querySelector('.name-warn');
+        if (existing) existing.remove();
+        const warn = document.createElement('div');
+        warn.className = 'name-warn';
+        warn.style.cssText = 'font-size:12px;color:var(--red);text-align:center;margin-top:-8px;margin-bottom:4px;font-weight:600;';
+        warn.textContent = `❌ Ce nom est déjà pris, choisis-en un autre`;
+        box.insertBefore(warn, box.querySelector('.res-btn'));
+      }
+      if (btn) { btn.disabled = false; btn.textContent = '⚔️ CONTINUER'; }
+      return;
+    }
     /* Fallback silencieux si offline */
-    const name = raw;
-    Save.savePlayerName(name);
-    State.oathNames = [name];
+    Save.savePlayerName(raw);
+    State.oathNames = [raw];
     if (State.gameMode === 'story') openStoryMap();
     else showScreen('screenOath');
   } finally {

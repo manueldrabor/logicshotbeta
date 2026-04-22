@@ -782,7 +782,7 @@ export function initCanvas() {
       vy:   (Math.random() - 0.5) * 0.00007,
       r:    Math.random() * 2.8 + 1.2,
       c:    cols[i % cols.length],
-      a:    Math.random() * 0.10 + 0.08,
+      a:    Math.random() * 0.05 + 0.04,
       life: Math.random() * 800 + 500,
       ml:   800
     });
@@ -803,7 +803,7 @@ export function initCanvas() {
         if (d < LINE_DIST) {
           const strength = 1 - d / LINE_DIST;
           /* Opacité de la ligne proportionnelle à la proximité */
-          const lineAlpha = strength * 0.35;
+          const lineAlpha = strength * 0.15;
           ctx.beginPath();
           ctx.moveTo(pts[i].x * W, pts[i].y * H);
           ctx.lineTo(pts[j].x * W, pts[j].y * H);

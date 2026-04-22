@@ -50,7 +50,21 @@ async function _saveBestOnline(score) {
     const rows = await _supaFetch(
       `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=id,survival_best`
     );
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+      /* Pas encore de ligne → créer l'entrée avec le nom du joueur */
+      const name = Save.getSavedName() || 'Joueur';
+      await _supaFetch('leaderboard', {
+        method: 'POST',
+        body: JSON.stringify({
+          device_id: deviceId,
+          name,
+          elo: 1000,
+          wins: 0,
+          survival_best: score
+        })
+      });
+      return;
+    }
     if (score > (rows[0].survival_best || 0)) {
       await _supaFetch(`leaderboard?id=eq.${rows[0].id}`, {
         method: 'PATCH',
@@ -234,6 +248,12 @@ export function svDel() {
 }
 
 export function svSubmit() { _onAnswer(); }
+
+export function svQuit() {
+  clearInterval(_timerIv);
+  _active = false;
+  _gameOver();
+}
 
 /* ══ RENDER ══ */
 function _renderQuestion() {

@@ -77,17 +77,8 @@ export async function reserveName(wantedName) {
       `leaderboard?name=eq.${encodeURIComponent(wantedName)}&select=device_id`
     );
     if (existing.length > 0 && existing[0].device_id !== deviceId) {
-      /* Nom pris par un autre → ajouter suffixe numérique */
-      let suffix = 2;
-      while (true) {
-        const candidate = `${wantedName}#${suffix}`;
-        const check = await supaFetch(
-          `leaderboard?name=eq.${encodeURIComponent(candidate)}&select=id`
-        );
-        if (check.length === 0) { finalName = candidate; break; }
-        suffix++;
-        if (suffix > 99) { finalName = wantedName + '_' + deviceId.slice(0, 4); break; }
-      }
+      /* Nom pris par un autre → bloquer, l'utilisateur doit choisir un autre nom */
+      throw new Error('NAME_TAKEN');
     }
 
     Save.savePlayerName(finalName);
@@ -124,16 +115,26 @@ export async function updateElo(name, eloDelta, won) {
       `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=id,elo,wins`
     );
     if (rows.length === 0) {
-      /* Première sync en ligne — vérifier si le nom est libre */
-      const existing = await supaFetch(
+      /* Première sync en ligne (joueur était hors ligne lors de l'inscription).
+         Vérifier que le nom n'a pas été pris par un autre device entre-temps. */
+      /* Vérifier que le nom n'a pas été pris pendant la session hors ligne */
+      let finalName = name;
+      const existingName = await supaFetch(
         `leaderboard?name=eq.${encodeURIComponent(name)}&select=device_id`
       );
-      const nameTaken = existing.length > 0 && existing[0].device_id !== deviceId;
-      const finalName = nameTaken ? `${name}_${deviceId.slice(0, 4)}` : name;
-      if (nameTaken) {
-        /* Sauvegarder le nouveau nom localement et notifier */
+      if (existingName.length > 0 && existingName[0].device_id !== deviceId) {
+        /* Nom pris → suffixe automatique (cas hors ligne uniquement) */
+        let suffix = 2;
+        while (suffix <= 99) {
+          const candidate = `${name}#${suffix}`;
+          const check = await supaFetch(
+            `leaderboard?name=eq.${encodeURIComponent(candidate)}&select=id`
+          );
+          if (check.length === 0) { finalName = candidate; break; }
+          suffix++;
+        }
         Save.savePlayerName(finalName);
-        console.warn(`Nom "${name}" pris en ligne → renommé "${finalName}" automatiquement`);
+        console.warn(`Nom "${name}" pris hors ligne → renommé "${finalName}" automatiquement`);
       }
       await supaFetch('leaderboard', {
         method: 'POST',
