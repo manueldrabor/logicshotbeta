@@ -105,6 +105,12 @@ export async function startSurvival() {
   /* Charger le best score en ligne avant de commencer */
   _bestScore = await _loadBestOnline();
 
+  /* ── Reset UI ── */
+  const goBox = document.getElementById('svGameOverBox');
+  const qBox  = document.getElementById('svQuestionBox');
+  if (goBox) goBox.style.display = 'none';
+  if (qBox)  qBox.style.display  = 'flex';
+
   sfx.battleStart?.();
   showScreen('screenSurvival');
   _nextQuestion();

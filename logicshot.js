@@ -62,7 +62,11 @@ window.shareRoomCode = shareRoomCode;
 window.cancelOnline = cancelOnline;
 
 /* ══ SURVIE INFINIE ══ */
-window.startSurvivalMode = () => { stopMenuMusic(); startSurvival(); };
+window.startSurvivalMode = () => {
+  stopMenuMusic();
+  window._oathCallback = () => startSurvival();
+  showScreen('screenOath');
+};
 window.svPress  = svPress;
 window.svNeg    = svNeg;
 window.svDel    = svDel;
@@ -228,8 +232,9 @@ function startOnlineMode() {
   const saved = Save.getSavedName();
   const inp = document.getElementById('onlineNameInput');
   if (inp && saved) inp.value = saved;
-  showScreen('screenOnlineMenu');
   stopMenuMusic();
+  window._oathCallback = () => showScreen('screenOnlineMenu');
+  showScreen('screenOath');
 }
 
 function showOnlineError(msg) {
