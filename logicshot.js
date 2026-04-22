@@ -15,7 +15,7 @@ import {
   submitAnswer, tapOrderBtn, npPress, npNeg, npDel, revealBlind,
   activateSuper, storyLevelToDiff, startAbsentCheck
 } from './battle.js';
-import { startSurvival, svPress, svNeg, svDel, svSubmit, svShare, svQuit } from './survival.js';
+import { startSurvival, svPress, svNeg, svDel, svSubmit, svShare } from './survival.js';
 
 /* ══ EXPOSE GLOBALS (pour les onclick inline restants) ══ */
 window._goSplash = goSplash;
@@ -62,13 +62,25 @@ window.shareRoomCode = shareRoomCode;
 window.cancelOnline = cancelOnline;
 
 /* ══ SURVIE INFINIE ══ */
-window.startSurvivalMode = () => { stopMenuMusic(); window._oathCallback = () => startSurvival(); showScreen('screenOath'); };
+window.startSurvivalMode = () => {
+  stopMenuMusic();
+  State.gameMode = '1vm'; /* non-story → proceedMatchmaking ira vers screenOath */
+  window._oathCallback = () => startSurvival();
+  const saved = Save.getSavedName();
+  if (!saved) {
+    document.getElementById('mmInputs').innerHTML = `<input class="mm-input" id="mmInp0" placeholder="Ton pseudo" maxlength="14" type="text" autocomplete="username" aria-label="Ton pseudo">`;
+    document.getElementById('mmTitle').textContent = 'TON NOM DE GUERRIER';
+    showScreen('screenMatchmaking');
+  } else {
+    State.oathNames = [saved];
+    showScreen('screenOath');
+  }
+};
 window.svPress  = svPress;
 window.svNeg    = svNeg;
 window.svDel    = svDel;
 window.svSubmit = svSubmit;
 window.svShare  = svShare;
-window.svQuit   = svQuit;
 
 /* ══ NARRATIFS ══ */
 const NARRATIVES = {
