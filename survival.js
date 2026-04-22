@@ -215,6 +215,7 @@ function _onTimeout() {
 async function _gameOver() {
   clearInterval(_timerIv);
   _active = false;
+  sfx.lose();
 
   const isNew = _score > _bestScore;
   if (isNew) {

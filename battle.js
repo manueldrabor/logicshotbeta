@@ -702,32 +702,52 @@ function handleVisibility() {
       p.isAbsent = true;
       setAbsentBadge(p.id, true);
       sfx.absent();
-      if (!State.roundActive) return;
-      p.hp = Math.max(0, p.hp - C.ABSENT_PENALTY);
-      updateHP(p);
-      showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--red)');
-      sfx.wrong();
-      /* Online : geler son propre timer + notifier l'adversaire */
+
       if (State.gameMode === 'online') {
+        /* Online : pénalité HP seulement si round en cours */
+        if (State.roundActive) {
+          p.hp = Math.max(0, p.hp - C.ABSENT_PENALTY);
+          updateHP(p);
+          showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--red)');
+          sfx.wrong();
+        }
+        /* Geler timer + notifier adversaire — même entre deux rounds */
         State.waitingForAbsent = true;
         State.onlineAdapter?.broadcastAbsentPenalty(p.hp);
+
+        if (p.hp <= 0 && State.roundActive) {
+          State.roundActive = false;
+          clearInterval(State.timerInterval);
+          State.waitingForAbsent = false;
+          showFeedback(`💀 ${p.name} a mis le jeu en arrière-plan — −${C.ABSENT_PENALTY} HP · KO !`, 'fail');
+          setTimeout(() => finishBattle(), 5000);
+        }
+      } else {
+        /* Mode offline : entre deux rounds → badge seulement, pas de pénalité */
+        if (!State.roundActive) return;
+        p.hp = Math.max(0, p.hp - C.ABSENT_PENALTY);
+        updateHP(p);
+        showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--red)');
+        sfx.wrong();
+        if (p.hp <= 0) {
+          State.roundActive = false;
+          clearInterval(State.timerInterval);
+          showFeedback(`💀 ${p.name} a mis le jeu en arrière-plan — −${C.ABSENT_PENALTY} HP · KO !`, 'fail');
+          setTimeout(() => finishBattle(), 5000);
+        }
       }
-      if (p.hp <= 0) {
-        State.roundActive = false;
-        clearInterval(State.timerInterval);
-        State.waitingForAbsent = false;
-        showFeedback(`💀 ${p.name} a mis le jeu en arrière-plan — −${C.ABSENT_PENALTY} HP · KO !`, 'fail');
-        setTimeout(() => finishBattle(), 5000);
-      }
+
     } else if (!hidden && p.isAbsent) {
       p.isAbsent = false;
       setAbsentBadge(p.id, false);
-      /* Online : dégeler son timer + prévenir l'adversaire */
-      if (State.gameMode === 'online' && State.roundActive) {
+
+      if (State.gameMode === 'online') {
         State.waitingForAbsent = false;
         State.onlineAdapter?.broadcastPlayerReturned?.();
-        showFeedback('✅ Tu es de retour — reprise !', 'ok');
-        setTimeout(() => hideFeedback(), 2500);
+        /* Message de synchronisation + rappel de la pénalité */
+        const penaltyMsg = State.roundActive ? ` · −${C.ABSENT_PENALTY} HP appliqués` : '';
+        showFeedback(`🔄 Synchronisation des résultats${penaltyMsg} — reprise !`, 'draw');
+        setTimeout(() => hideFeedback(), 3000);
       }
     }
   });

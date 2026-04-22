@@ -834,11 +834,12 @@ window._restoreFromCode = async function() {
     const { restoreFromRecoveryCode } = await import('./leaderboard.js');
     const name = await restoreFromRecoveryCode(inp.value.trim());
     if (msg) { msg.style.color='var(--green)'; msg.textContent=`✅ Progression de ${name} restaurée !`; }
-    /* Re-render XP bar */
     setTimeout(() => {
-      renderXPBar();
       document.getElementById('recoveryModal')?.remove();
-      alert(`✅ Progression de "${name}" restaurée avec succès !`);
+      renderXPBar();
+      _refreshPlayerBadge();
+      /* Fermer l'écran nom si visible + retour splash */
+      goSplash();
     }, 1200);
   } catch(e) {
     if (msg) { msg.style.color='var(--red)'; msg.textContent=e.message || 'Erreur inconnue.'; }

@@ -25,7 +25,7 @@
   --shadow:rgba(0,0,0,0.07);
   --shadow-lg:rgba(0,0,0,0.13);
   --r:14px;
-  --particle-op:0.85;
+  --particle-op:0.95;
   --scan-op:0.04;
 }
 [data-theme="dark"]{
@@ -50,7 +50,7 @@
   --cyan:#00fff7;
   --shadow:rgba(0,0,0,0.4);
   --shadow-lg:rgba(0,0,0,0.7);
-  --particle-op:0.7;
+  --particle-op:0.90;
   --scan-op:0.015;
 }
 

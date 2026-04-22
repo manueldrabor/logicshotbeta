@@ -6,13 +6,31 @@ import { sfx } from './audio.js';
 
 /* ══ NAVIGATION ══ */
 const ALL_SCREENS = [
-  'screenSplash','screenNameSetup','screenMatchmaking','screenDiffSelect','screenStory',
+  'screenSplash','screenMatchmaking','screenDiffSelect','screenStory',
   'screenNarrative','screenOath','screenBattle','screenResults','screenTutorial',
   'screenOnlineMenu','screenOnlineLobby','screenSurvival'
 ];
+function setParticlesOpacity(value) {
+  const canvas = document.getElementById('cyberCanvas');
+  if (!canvas) return;
+  canvas.style.transition = 'opacity 220ms ease';
+  canvas.style.opacity = value;
+}
+
 export function showScreen(id) {
   ALL_SCREENS.forEach(s => document.getElementById(s)?.classList.add('hidden'));
   document.getElementById(id)?.classList.remove('hidden');
+
+  const battleScreens = ['screenBattle', 'screenSurvival'];
+  const lowParticlesScreens = ['screenNarrative', 'screenOath', 'screenResults'];
+
+  if (battleScreens.includes(id)) {
+    setParticlesOpacity('0.18');
+  } else if (lowParticlesScreens.includes(id)) {
+    setParticlesOpacity('0.28');
+  } else {
+    setParticlesOpacity('');
+  }
 }
 
 /* ══ THÈME ══ */
@@ -461,11 +479,7 @@ export async function showLeaderboard(tab = 'elo') {
                 </div>
               </div>`
             ).join('');
-        content.innerHTML = onlineBadge + rows + `
-          <button onclick="if(confirm('Effacer le classement local ?')){localStorage.removeItem('ls_elo');window._lbShowTab('elo');}"
-            style="margin-top:12px;width:100%;padding:8px;background:transparent;border:1px solid rgba(229,48,48,0.3);border-radius:8px;font-size:11px;color:var(--red);cursor:pointer;font-family:'Space Grotesk',sans-serif;font-weight:600;">
-            🗑 Effacer le classement local
-          </button>`;
+        content.innerHTML = onlineBadge + rows;
 
       } else {
         const entries = await fetchSurvivalLeaderboard();
