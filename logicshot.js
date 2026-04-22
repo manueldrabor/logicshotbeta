@@ -393,8 +393,6 @@ function showTutorial() {
 function closeTutorial() {
   document.getElementById('screenTutorial')?.classList.add('hidden');
 }
-  showScreen('screenSplash');
-}
 
 function renderTutorialStep() {
   const step = TUTORIAL_STEPS[tutorialStep];
