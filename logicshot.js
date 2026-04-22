@@ -342,23 +342,19 @@ function shareRoomCode() {
   if (!State.roomCode) return;
   const code = State.roomCode;
   const gameUrl = window.location.origin + window.location.pathname.replace(/\/$/, '') + '/';
-  const text = `⚔️ Rejoins-moi sur LogicShot !\nCode de la salle : ${code}\n🧠 Calcul mental en 1v1 — Peux-tu me battre ?\n${gameUrl}`;
+  /* shareText : sans URL (navigator.share ajoute url séparément — évite le doublon)
+     clipboardText : avec URL (pour le fallback copier-coller) */
+  const shareText    = `⚔️ Rejoins-moi sur LogicShot !\nCode de la salle : ${code}\n🧠 Calcul mental en 1v1 — Peux-tu me battre ?`;
+  const clipboardText = shareText + '\n' + gameUrl;
+  const onCopied = () => {
+    const btn = document.getElementById('lobbyShareBtn');
+    if (btn) { btn.textContent = '✅ Lien copié !'; setTimeout(() => btn.textContent = '📤 Partager le code', 2000); }
+  };
   if (navigator.share) {
-    navigator.share({
-      title: 'LogicShot — Rejoins ma salle !',
-      text,
-      url: gameUrl
-    }).catch(() => {
-      navigator.clipboard?.writeText(text).then(() => {
-        const btn = document.getElementById('lobbyShareBtn');
-        if (btn) { btn.textContent = '✅ Lien copié !'; setTimeout(() => btn.textContent = '📤 Partager le code', 2000); }
-      });
-    });
+    navigator.share({ title: 'LogicShot — Rejoins ma salle !', text: shareText, url: gameUrl })
+      .catch(() => navigator.clipboard?.writeText(clipboardText).then(onCopied));
   } else {
-    navigator.clipboard?.writeText(text).then(() => {
-      const btn = document.getElementById('lobbyShareBtn');
-      if (btn) { btn.textContent = '✅ Lien copié !'; setTimeout(() => btn.textContent = '📤 Partager le code', 2000); }
-    });
+    navigator.clipboard?.writeText(clipboardText).then(onCopied);
   }
 }
 

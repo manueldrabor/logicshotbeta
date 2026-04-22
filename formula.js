@@ -90,7 +90,7 @@ function genHard() {
     if (r !== null) { formula = f; answer = r; break; }
   } while (att < 1000);
   if (!formula) { formula = '7 × 8 - 48 ÷ 6 + 3 - 2'; answer = 49; }
-  return { formula, answer, difficulty: 'hard', time: 35 };
+  return { formula, answer, difficulty: 'hard', time: 40 };
 }
 
 /* ── Assignation des mécaniques par round (sync online) ──

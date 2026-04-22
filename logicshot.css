@@ -946,12 +946,15 @@ body::before{
   top: 50%; left: 50%;
   transform: translate(-50%, -50%) scale(0.4);
   font-family: 'Syne', sans-serif;
-  font-size: clamp(32px, 8vw, 68px);
+  font-size: clamp(20px, 6vw, 68px);
   font-weight: 800;
-  letter-spacing: 4px;
+  letter-spacing: clamp(1px, 0.8vw, 4px);
   pointer-events: none;
   z-index: 10010;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  width: min(88vw, 480px);
+  word-break: break-word;
   animation: critPopAnim 1.0s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 .crit-player {

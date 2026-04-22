@@ -684,7 +684,7 @@ export function quitBattle() {
   if (State.gameMode === 'online') State.onlineAdapter?.broadcastGameOver();
   clearAll();
   document.removeEventListener('visibilitychange', handleVisibility);
-  State.players.filter(p => !p.isAI).forEach(p => { p.hp = 0; p.hasQuit = true; });
+  State.players.filter(p => !p.isAI && !p.isRemote).forEach(p => { p.hp = 0; p.hasQuit = true; });
   if (State.gameMode === 'online') {
     /* Délai 500ms pour laisser le message partir avant de couper le canal */
     setTimeout(() => State.onlineAdapter?.cleanup(), 500);
@@ -695,26 +695,32 @@ export function quitBattle() {
 /* ══ ABSENT ══ */
 export function startAbsentCheck() { document.addEventListener('visibilitychange', handleVisibility); }
 function handleVisibility() {
-  if (!State.roundActive) return;
   const hidden = document.hidden;
   State.players.filter(p => !p.isAI && !p.isRemote && !p.hasQuit).forEach(p => {
     if (hidden && !p.isAbsent) {
-      p.isAbsent = true; setAbsentBadge(p.id, true); sfx.absent();
-    } else if (!hidden && p.isAbsent) {
-      p.isAbsent = false; setAbsentBadge(p.id, false);
-      p.hp = Math.max(0, p.hp - C.ABSENT_PENALTY); updateHP(p);
-      showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--red)'); sfx.wrong();
-      /* En online : broadcaster la pénalité pour que l'adversaire
-         mette à jour ses HP affichés ET détecte un éventuel KO */
+      /* Départ en arrière-plan : pénalité immédiate (garantit que finishBattle
+         verra les bons HP même si le round se termine avant le retour) */
+      p.isAbsent = true;
+      setAbsentBadge(p.id, true);
+      sfx.absent();
+      if (!State.roundActive) return; /* entre deux rounds — badge seulement, pas de pénalité */
+      p.hp = Math.max(0, p.hp - C.ABSENT_PENALTY);
+      updateHP(p);
+      showImpactFX(`👁️ −${C.ABSENT_PENALTY} HP`, 'var(--red)');
+      sfx.wrong();
       if (State.gameMode === 'online') {
-        State.onlineAdapter?.broadcastAnswer(null, Date.now(), false, State.roundIndex);
         State.onlineAdapter?.broadcastAbsentPenalty(p.hp);
       }
       if (p.hp <= 0) {
-        State.roundActive = false; clearInterval(State.timerInterval);
+        State.roundActive = false;
+        clearInterval(State.timerInterval);
         showFeedback(`💀 ${p.name} a mis le jeu en arrière-plan — −${C.ABSENT_PENALTY} HP · KO !`, 'fail');
         setTimeout(() => finishBattle(), 5000);
       }
+    } else if (!hidden && p.isAbsent) {
+      /* Retour : juste effacer le badge — la pénalité a déjà été appliquée au départ */
+      p.isAbsent = false;
+      setAbsentBadge(p.id, false);
     }
   });
 }
