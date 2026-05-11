@@ -27,6 +27,13 @@
 <meta name="twitter:image"       content="https://manueldrabor.github.io/logicshotbeta/icon-512.png"/>
 <title>LogicShot</title>
 <link rel="manifest" href="manifest.json"/>
+  <!-- iOS home screen icon -->
+  <link rel="apple-touch-icon" href="icon-512.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="LogicShot">
 <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
 <link rel="apple-touch-icon" href="icon-192.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -69,6 +76,15 @@
   from { opacity: 0.4; }
   to   { opacity: 1; }
 }
+
+/* ── Logo mobile fix ── */
+.splash-logo-wrap {
+  overflow: visible !important;
+}
+/* Le filter:drop-shadow déborde — padding pour ne pas couper */
+#screenSplash .splash-logo-wrap {
+  padding-top: 16px;
+}
 @keyframes tutoHP {
   0%   { width: 100%; }
   50%  { width: 65%; }
@@ -98,7 +114,7 @@
 <!-- ══ SPLASH ══ -->
 <div id="screenSplash" class="screen" role="main" aria-label="Menu principal">
   <!-- Logo SVG -->
-  <div class="splash-logo-wrap" aria-label="LogicShot" style="position:relative;overflow:visible;">
+  <div class="splash-logo-wrap" aria-label="LogicShot" style="position:relative;overflow:visible;padding:14px 14px 0;">
 
     <img src="favicon.svg" class="splash-logo-icon" alt="LogicShot logo" style="width:70px;height:70px;border-radius:10px;display:block;">
 
