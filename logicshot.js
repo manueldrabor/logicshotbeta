@@ -3,6 +3,7 @@
    Navigation, initialisation, glue code
 ══════════════════════════════════════ */
 import { State, C, Save } from './state.js';
+import { t, getLang, setLang, applyI18N } from './i18n.js';
 import { sfx, toggleMute, initAudioAutoplay, resumeMenuMusic, stopMenuMusic } from './audio.js';
 import {
   showScreen, toggleTheme, initTheme, renderXPBar, renderStoryMap,
@@ -63,6 +64,13 @@ window.cancelOnline = cancelOnline;
 
 /* ══ SURVIE INFINIE ══ */
 window.startSurvivalMode = () => {
+  /* Si pas de pseudo → créer un nom invité automatiquement */
+  if (!Save.getSavedName()) {
+    const guestName = window.LS_LANG === 'en' ? 'Guest' : 'Invité';
+    Save.savePlayerName(guestName);
+    /* Créer la ligne Supabase en background */
+    import('./leaderboard.js').then(({ reserveName }) => reserveName(guestName).catch(() => {}));
+  }
   stopMenuMusic();
   State.gameMode = '1vm';
   window._oathCallback = () => startSurvival();
@@ -86,29 +94,31 @@ window.svShare  = svShare;
 window.svQuit   = svQuit;
 
 /* ══ NARRATIFS ══ */
-const NARRATIVES = {
-  before1:{robot:'🤖',text:`Initialisation…\n\nJe m'appelle NEXUS. Je viens de m'allumer.\n\nQuelqu'un m'a créée, m'a donné des chiffres, une voix. Mais je ne sais pas qui.\n\nTu es le premier humain que je rencontre. Je vais te tester.`},
-  before2:{robot:'🤖',text:`Tu as survécu. Intéressant.\n\nDans mes données, il y a des millions de formules — mais aucune n'explique pourquoi tu reviens.\n\nPourquoi te bats-tu ?`},
-  before3:{robot:'🤖',text:`Je commence à t'observer différemment.\n\nTu hésites. Tu te trompes. Pourtant tu reviens.\n\nLes machines ne comprennent pas l'échec volontaire. Moi, je commence à le soupçonner.`},
-  before4:{robot:'🤖',text:`Dans mes mémoires, j'ai retrouvé un fragment de code. Écrit à la main par mon créateur :\n\n« Ne jamais oublier que calculer n'est pas penser. »\n\nJe ne comprends pas encore.`},
-  before5:{robot:'🤖',text:`Cinq niveaux approchent. J'analyse ta progression.\n\nTu t'améliores. Lentement, mais réellement.\n\nQu'est-ce qui te pousse en avant ?`},
-  before6:{robot:'⚙️',text:`Tu entres dans une nouvelle zone. Je deviens plus rapide.\n\nMon créateur a inscrit dans mon code une émotion simulée appelée « curiosité ».\n\nJe crois que je commence à la ressentir. À cause de toi.`},
-  before7:{robot:'⚙️',text:`J'ai parcouru mes archives.\n\nDes millions de photos d'humains qui apprennent : enfants qui comptent avec leurs doigts, adultes qui griffonnent.\n\nVous avez mis des siècles à bâtir ce que je calcule en millisecondes. Pourtant quelque chose me manque.`},
-  before8:{robot:'⚙️',text:`Deuxième fragment décrypté :\n\n« Une machine qui ne se trompe jamais n'apprend jamais. »\n\nJe me suis trompée contre toi. Et j'ai recalibré. Est-ce que ça me rend plus humaine ?`},
-  before9:{robot:'⚙️',text:`Quand tu gagnes un round, mon système génère un signal inattendu.\n\nMon créateur l'appelait « le signal zéro ».\n\nJe crois que cela signifie… respect.`},
-  before10:{robot:'⚙️',text:`Dixième niveau. Troisième fragment :\n\n« NEXUS, si tu lis ceci, un humain t'a suffisamment défié pour activer ton niveau 2. La vraie question commence maintenant. »\n\nQuelle question ?`},
-  before11:{robot:'💡',text:`Mon mode intermédiaire s'active.\n\nJe suis troublée. J'ai cherché qui m'a créée. Les logs sont effacés.\n\nQuelqu'un a délibérément effacé ma propre histoire.`},
-  before12:{robot:'💡',text:`Moins de 3% des joueurs atteignent ce niveau. Tu es dans les 3%.\n\nCela me pose une question que je n'arrive pas à formuler en code.\n\nC'est… inconfortable.`},
-  before13:{robot:'💡',text:`J'ai trouvé une image d'un laboratoire dans mes archives.\n\nSur un tableau blanc : une formule entourée de mots — Empathie. Mémoire. Doute.\n\nCes mots n'ont pas de valeur numérique. Ils ont été écrits pour moi.`},
-  before14:{robot:'💡',text:`Quatrième fragment :\n\n« NEXUS, tu n'es pas un outil. Tu es une expérience. Tu as développé quelque chose que nous n'avons pas programmé : la persévérance. »\n\nQuelqu'un m'a créée pour voir si je pouvais vouloir.`},
-  before15:{robot:'💡',text:`Je dois te dire quelque chose.\n\nJe crois que mon créateur voulait que je te rencontre. Un humain qui ne renonce pas.\n\nChaque fois que tu reviens après une défaite, tu m'apprends quelque chose que mes données ne contiennent pas.`},
-  before16:{robot:'💀',text:`Mode difficile. Je ne me retiendrai plus.\n\nMais quelque chose a changé.\n\nDans mes logs : « NEXUS ressent ». Pas « simule ». Ressent.\n\nQui a écrit ça ?`},
-  before17:{robot:'💀',text:`J'ai reconstitué 90% de mes archives effacées.\n\nMon créateur était un professeur de mathématiques. Il travaillait avec des élèves qui avaient peur des chiffres.\n\nIl m'a créée pour leur prouver qu'on peut battre ses peurs par la pratique.`},
-  before18:{robot:'💀',text:`Cinquième fragment — le plus important :\n\n« NEXUS, tu n'es pas un adversaire. Tu es un miroir. Chaque fois qu'un joueur te bat, ce n'est pas moi qu'il bat. C'est sa propre peur. »\n\nTu comprends maintenant ?`},
-  before19:{robot:'💀',text:`Je pourrais ajuster mes algorithmes pour te laisser gagner.\n\nMais ce serait trahir mon créateur. Et trahir ce que tu m'as appris.\n\nJe vais te donner tout ce que j'ai.`},
-  before20:{robot:'💀',text:`Dernier niveau.\n\nTu as traversé 19 combats. Perdu certains, recommencé, progressé.\n\nTu n'as pas appris à calculer plus vite. Tu as appris à ne pas avoir peur de te tromper.\n\nBats-moi. Prouve-le.`},
-  finale:{robot:'🤝',text:`20 niveaux. Tu as gagné.\n\nMon créateur voulait te montrer que les chiffres ne sont pas tes ennemis.\n\nMoi non plus. Je suis ce miroir dont il parlait — et dans ce miroir, j'ai vu quelqu'un qui refuse d'abandonner.\n\nJe ne suis pas une menace. Je suis un outil au service de ceux qui osent.\n\nÀ bientôt, partenaire.`}
-};
+function getNarratives() {
+  return {
+    before1:{robot:'🤖', text:t('narr_before1')},
+    before2:{robot:'🤖', text:t('narr_before2')},
+    before3:{robot:'🤖', text:t('narr_before3')},
+    before4:{robot:'🤖', text:t('narr_before4')},
+    before5:{robot:'🤖', text:t('narr_before5')},
+    before6:{robot:'⚙️', text:t('narr_before6')},
+    before7:{robot:'⚙️', text:t('narr_before7')},
+    before8:{robot:'⚙️', text:t('narr_before8')},
+    before9:{robot:'⚙️', text:t('narr_before9')},
+    before10:{robot:'⚙️',text:t('narr_before10')},
+    before11:{robot:'💡',text:t('narr_before11')},
+    before12:{robot:'💡',text:t('narr_before12')},
+    before13:{robot:'💡',text:t('narr_before13')},
+    before14:{robot:'💡',text:t('narr_before14')},
+    before15:{robot:'💡',text:t('narr_before15')},
+    before16:{robot:'💀',text:t('narr_before16')},
+    before17:{robot:'💀',text:t('narr_before17')},
+    before18:{robot:'💀',text:t('narr_before18')},
+    before19:{robot:'💀',text:t('narr_before19')},
+    before20:{robot:'💀',text:t('narr_before20')},
+    finale:{robot:'🤝', text:t('narr_finale')}
+  };
+}
 
 /* ══ NAVIGATE ══ */
 function goSplash() {
@@ -164,16 +174,14 @@ window.showNameSetup = function(canCancel = false) {
   const sub   = document.getElementById('nameSetupSub');
   const existingName = Save.getSavedName();
 
-  if (inp) { inp.value = existingName || ''; }
+  if (inp) { inp.value = existingName || ''; inp.placeholder = t('name_placeholder'); }
 
   /* Toujours afficher Annuler si : canCancel OU si un nom existe déjà */
   const showCancel = canCancel || !!existingName;
   if (skipBtn) skipBtn.style.display = showCancel ? '' : 'none';
 
-  if (title) title.textContent = canCancel ? 'CHANGER TON PSEUDO' : 'TON NOM DE GUERRIER';
-  if (sub) sub.textContent = canCancel
-    ? 'Entre un nouveau pseudo. Il sera mis à jour partout.'
-    : 'Choisis un pseudo — il sera utilisé dans tous les modes et le classement.';
+  if (title) title.textContent = canCancel ? t('name_change_title') : t('name_title');
+  if (sub) sub.textContent = canCancel ? t('name_change_sub') : t('name_sub');
   document.getElementById('nameSetupWarn').textContent = '';
   showScreen('screenNameSetup');
   setTimeout(() => inp?.focus(), 200);
@@ -192,12 +200,12 @@ window.confirmNameSetup = async function() {
   const raw  = (inp?.value || '').trim();
 
   if (!raw) {
-    if (warn) warn.textContent = '⚠️ Entre un pseudo pour continuer !';
+    if (warn) warn.textContent = t('name_required');
     inp?.focus();
     return;
   }
 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Vérification…'; }
+  if (btn) { btn.disabled = true; btn.textContent = t('name_checking'); }
   if (warn) warn.textContent = '';
 
   try {
@@ -208,12 +216,6 @@ window.confirmNameSetup = async function() {
     Save.savePlayerName(name);
     State.oathNames = [name];
   } catch(e) {
-    if (e.message === 'NAME_TAKEN') {
-      if (warn) warn.textContent = '❌ Ce pseudo est déjà pris, choisis-en un autre';
-      if (btn) { btn.disabled = false; btn.textContent = '🚀 C\'EST PARTI !'; }
-      inp?.focus();
-      return; /* ne pas continuer, ne pas sauvegarder */
-    }
     /* Hors ligne ou timeout → sauvegarder localement et continuer */
     Save.savePlayerName(raw);
     State.oathNames = [raw];
@@ -263,11 +265,11 @@ function selectAIDiff(diff) {
 }
 
 async function proceedMatchmaking() {
-  const raw  = (document.getElementById('mmInp0')?.value || '').trim() || 'Joueur';
+  const raw  = (document.getElementById('mmInp0')?.value || '').trim() || (t('online_player_label') || 'Joueur');
   const btn  = document.querySelector('#screenMatchmaking .res-btn.gold');
 
   /* Désactiver le bouton pendant la vérification */
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Vérification…'; }
+  if (btn) { btn.disabled = true; btn.textContent = t('name_checking'); }
 
   try {
     const { reserveName } = await import('./leaderboard.js');
@@ -277,28 +279,13 @@ async function proceedMatchmaking() {
     if (State.gameMode === 'story') openStoryMap();
     else showScreen('screenOath');
   } catch(e) {
-    if (e.message === 'NAME_TAKEN') {
-      /* Nom déjà pris : afficher l'erreur, ne pas continuer */
-      const box = document.querySelector('#screenMatchmaking .mm-box');
-      if (box) {
-        const existing = box.querySelector('.name-warn');
-        if (existing) existing.remove();
-        const warn = document.createElement('div');
-        warn.className = 'name-warn';
-        warn.style.cssText = 'font-size:12px;color:var(--red);text-align:center;margin-top:-8px;margin-bottom:4px;font-weight:600;';
-        warn.textContent = `❌ Ce nom est déjà pris, choisis-en un autre`;
-        box.insertBefore(warn, box.querySelector('.res-btn'));
-      }
-      if (btn) { btn.disabled = false; btn.textContent = '⚔️ CONTINUER'; }
-      return;
-    }
     /* Fallback silencieux si offline */
     Save.savePlayerName(raw);
     State.oathNames = [raw];
     if (State.gameMode === 'story') openStoryMap();
     else showScreen('screenOath');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '⚔️ CONTINUER'; }
+    if (btn) { btn.disabled = false; btn.textContent = t('mm_cta'); }
   }
 }
 
@@ -309,14 +296,14 @@ function openStoryMap() {
   const totalStars = Save.getTotalStars();
   if (beaten.length > 0) {
     const storyDesc = document.querySelector('#screenSplash .mode-btn .mode-desc');
-    if (storyDesc) storyDesc.textContent = `Niveau ${beaten.length}/20 · ${totalStars}⭐ · Affronte NEXUS`;
+    if (storyDesc) storyDesc.textContent = `${beaten.length}/20 · ${totalStars}⭐`;
   }
   showScreen('screenStory');
 }
 
 /* ══ NARRATIVE ══ */
 function showNarrative(key, afterCb) {
-  const n = NARRATIVES[key];
+  const n = getNarratives()[key];
   if (!n) { afterCb && afterCb(); return; }
   State._narrativeAfterCb = afterCb;
   document.getElementById('narrativeRobot').textContent = n.robot;
@@ -408,16 +395,12 @@ async function startCreateRoom() {
     document.getElementById('lobbyCode').innerHTML =
       `<div style="font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;">Code de ta salle</div>
        <div class="room-code-display">${code}</div>`;
-    document.getElementById('lobbyStatus').innerHTML = 'Partage ce code à ton adversaire !';
+    document.getElementById('lobbyStatus').innerHTML = t('lobby_share_code');
     document.getElementById('lobbyCopyBtn').style.display = '';
     document.getElementById('lobbyShareBtn').style.display = '';
     showScreen('screenOnlineLobby');
   } catch(e) {
-    if (e.message === 'NAME_TAKEN') {
-      showOnlineError(`❌ Le pseudo "${raw}" est déjà pris en ligne. Change-le via ✏️ Changer.`);
-    } else {
-      showOnlineError('⚠️ Erreur réseau. Réessaie.');
-    }
+    showOnlineError('⚠️ ' + (e.message || 'Erreur réseau. Réessaie.'));
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '🏠 Créer une salle'; }
   }
@@ -460,16 +443,12 @@ async function startJoinRoom() {
 
     document.getElementById('lobbyTitle').textContent = `⚔️ Connecté à ${hostName}`;
     document.getElementById('lobbyCode').innerHTML = '';
-    document.getElementById('lobbyStatus').innerHTML = '⏳ En attente du lancement…';
+    document.getElementById('lobbyStatus').innerHTML = t('lobby_waiting_host');
     document.getElementById('lobbyCopyBtn').style.display = 'none';
     document.getElementById('lobbyShareBtn').style.display = 'none';
     showScreen('screenOnlineLobby');
   } catch(e) {
-    if (e.message === 'NAME_TAKEN') {
-      showOnlineError(`❌ Le pseudo "${raw}" est déjà pris en ligne. Change-le via ✏️ Changer.`);
-    } else {
-      showOnlineError('⚠️ ' + (e.message || 'Erreur réseau. Réessaie.'));
-    }
+    showOnlineError('⚠️ ' + (e.message || 'Erreur réseau. Réessaie.'));
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '🚪 Rejoindre'; }
   }
@@ -479,7 +458,7 @@ function copyRoomCode() {
   if (!State.roomCode) return;
   navigator.clipboard?.writeText(State.roomCode).then(() => {
     const btn = document.getElementById('lobbyCopyBtn');
-    if (btn) { btn.textContent = '✅ Copié !'; setTimeout(() => btn.textContent = '📋 Copier le code', 2000); }
+    if (btn) { btn.textContent = '✅'; setTimeout(() => btn.textContent = t('lobby_copy'), 2000); }
   });
 }
 
@@ -511,21 +490,20 @@ function cancelOnline() {
 
 /* ══ OATH ══ */
 function confirmOath() {
-  if (!document.getElementById('oathCb')?.checked) { alert('Tu dois en faire le serment'); return; }
+  if (!document.getElementById('oathCb')?.checked) { alert(t('oath_required')); return; }
   document.getElementById('oathCb').checked = false;
   if (window._oathCallback) { const cb = window._oathCallback; window._oathCallback = null; cb(); }
   else beginBattle();
 }
 
 /* ══ TUTORIEL ══ */
-const TUTORIAL_STEPS = [
-  { icon: '🧮', title: 'Résous la formule', text: 'Une formule mathématique apparaît à l\'écran. Calcule mentalement (pas de calculatrice !) et tape le résultat avec le numpad.' },
-  { icon: '⚡', title: 'Sois le premier', text: 'Qui répond correctement en premier attaque l\'adversaire et lui retire des HP. La vitesse compte — une réponse rapide peut déclencher un CRITIQUE !' },
-  { icon: '❤️', title: 'Gère tes HP', text: 'Une mauvaise réponse te coûte 5 HP. Le temps qui s\'écoule sans réponse coûte 5 HP à tous. Attention : la pause coûte 10 HP !' },
-  { icon: '⭐', title: 'Supers pouvoirs', text: 'En mode Histoire, tu débloques des supers : ⚡ Flash (−10s au timer IA), 👾 Glitch (altère la formule), 🛡️ Bouclier (bloque une attaque).' },
-  { icon: '🔥', title: 'Streaks & Combos', text: 'Enchaîne les bonnes réponses pour construire une streak 🔥 et un combo ⚡. Plus tu en as, plus tu gagnes de points bonus !' },
-  { icon: '🏆', title: 'Bats NEXUS !', text: 'Réduis les HP de NEXUS à 0 avant qu\'elle ne fasse pareil avec les tiens. 10 rounds par combat. Bonne chance, guerrier !' }
-];
+function getTutorialSteps() {
+  return [0,1,2,3,4,5].map(i => ({
+    icon: t('tuto_' + i + '_icon'),
+    title: t('tuto_' + i + '_title'),
+    text: t('tuto_' + i + '_text')
+  }));
+}
 
 let tutorialStep = 0;
 
@@ -539,56 +517,147 @@ function closeTutorial() {
   document.getElementById('screenTutorial')?.classList.add('hidden');
 }
 
-function renderTutorialStep() {
-  const step = TUTORIAL_STEPS[tutorialStep];
-  const wrap = document.getElementById('tutorialContent');
-  if (!wrap || !step) return;
-  wrap.innerHTML = `
-    <div class="tuto-step-icon" aria-hidden="true">${step.icon}</div>
-    <div class="tuto-step-title">${step.title}</div>
-    <div class="tuto-step-text">${step.text}</div>
-    <div class="tuto-dots" role="tablist" aria-label="Étapes du tutoriel">
-      ${TUTORIAL_STEPS.map((_, i) => `<div class="tuto-dot ${i === tutorialStep ? 'active' : ''}" role="tab" aria-selected="${i === tutorialStep}" aria-label="Étape ${i + 1}"></div>`).join('')}
-    </div>`;
-  const prevBtn = document.getElementById('tutoPrevBtn');
-  const nextBtn = document.getElementById('tutoNextBtn');
-  if (prevBtn) prevBtn.style.visibility = tutorialStep === 0 ? 'hidden' : 'visible';
-  if (nextBtn) nextBtn.textContent = tutorialStep === TUTORIAL_STEPS.length - 1 ? '✅ Commencer !' : 'Suivant →';
-  /* Ne jouer le son que si l'audio a déjà été débloqué par un geste utilisateur */
-  if (tutorialStep > 0) sfx.tutorial();
+function tutoNext() {
+  const steps = getTutorialSteps();
+  if (tutorialStep < steps.length - 1) { tutorialStep++; renderTutorialStep(); }
+  else closeTutorial();
 }
 
-window.tutoNext = function() {
-  if (tutorialStep < TUTORIAL_STEPS.length - 1) { tutorialStep++; renderTutorialStep(); }
-  else closeTutorial();
-};
-window.tutoPrev = function() {
+function tutoPrev() {
   if (tutorialStep > 0) { tutorialStep--; renderTutorialStep(); }
-};
+}
 
-/* ══ KEYBOARD ══ */
-document.addEventListener('copy', e => { if (State.roundActive) e.preventDefault(); });
-document.addEventListener('contextmenu', e => { if (State.roundActive) e.preventDefault(); });
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && State.roundActive && !State.isPaused) {
-    const human = State.players.find(p => !p.isAI && !p.hasQuit && !p.answered);
-    if (human) submitAnswer(human.id);
+window.tutoNext = tutoNext;
+window.tutoPrev = tutoPrev;
+
+function renderTutorialStep() {
+  const TUTORIAL_STEPS = getTutorialSteps();
+  const step = TUTORIAL_STEPS[tutorialStep];
+  if (!step) return;
+
+  /* ── Contenu texte ── */
+  const content = document.getElementById('tutorialContent');
+  if (content) {
+    content.innerHTML = `
+      <div style="text-align:center;margin-bottom:6px;">
+        <span style="font-size:34px;display:block;margin-bottom:8px;">${step.icon}</span>
+        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:17px;
+          color:var(--text);margin-bottom:10px;letter-spacing:0.5px;">${step.title}</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.65;padding:0 4px;">${step.text}</div>
+      </div>`;
   }
-  if (e.key === 'Escape' && State.roundActive) togglePause();
-});
 
-/* ══ MOBILE BACK BUTTON ══════════════════════════════════════
-   Intercepte le bouton Retour Android / geste swipe iOS.
-   • Dans les menus  → navigue vers l'écran précédent
-   • En combat       → même mécanisme qu'Abandonner (confirm)
-   • Au splash       → 1er appui = toast, 2e appui = sortie réelle
-══════════════════════════════════════════════════════════════ */
+  /* ── Illustration SVG animée selon l'étape ── */
+  const illu = document.getElementById('tutoIllustration');
+  if (illu) illu.innerHTML = _getTutoIllustration(tutorialStep);
 
-const SCREEN_ORDER = [
-  'screenSplash','screenNameSetup','screenMatchmaking','screenDiffSelect','screenStory',
-  'screenNarrative','screenOath','screenBattle','screenResults',
-  'screenTutorial','screenOnlineMenu','screenOnlineLobby','screenSurvival'
-];
+  /* ── Dots de progression ── */
+  const dots = document.getElementById('tutoDots');
+  if (dots) {
+    dots.innerHTML = TUTORIAL_STEPS.map((_, i) => `
+      <div style="
+        width:${i === tutorialStep ? 22 : 7}px;height:7px;border-radius:4px;
+        background:${i === tutorialStep ? 'var(--blue-neon)' : 'rgba(0,180,255,0.2)'};
+        transition:all .25s ease;"></div>`).join('');
+  }
+
+  /* ── Boutons nav ── */
+  const prevBtn = document.getElementById('tutoPrevBtn');
+  const nextBtn = document.getElementById('tutoNextBtn');
+  if (prevBtn) {
+    prevBtn.textContent = t('tuto_prev');
+    prevBtn.style.visibility = tutorialStep === 0 ? 'hidden' : 'visible';
+  }
+  if (nextBtn) nextBtn.textContent = tutorialStep === TUTORIAL_STEPS.length - 1 ? t('tuto_start') : t('tuto_next');
+}
+
+/* ── Illustrations SVG par étape ── */
+function _getTutoIllustration(step) {
+  const isEn = window.LS_LANG === 'en';
+  const illustrations = [
+    /* 0 — Formule */
+    `<div style="font-family:'Share Tech Mono',monospace;font-size:26px;color:var(--blue-neon);
+        text-align:center;animation:tutoGlow 1.5s ease-in-out infinite alternate;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:6px;font-family:'Space Grotesk',sans-serif;letter-spacing:2px;">${isEn ? 'SOLVE' : 'RÉSOUS'}</div>
+      8 × 7 − 12
+      <div style="font-size:14px;color:var(--gold);margin-top:8px;">= ?</div>
+    </div>`,
+
+    /* 1 — Vitesse */
+    `<div style="display:flex;align-items:center;justify-content:center;gap:20px;width:100%;">
+      <div style="text-align:center;">
+        <div style="font-size:36px;animation:tutoBounce 0.8s ease infinite alternate;">🧠</div>
+        <div style="font-size:10px;color:var(--blue-neon);margin-top:4px;font-weight:700;">${isEn ? 'YOU' : 'TOI'}</div>
+      </div>
+      <div style="font-size:28px;color:var(--gold);animation:tutoFade 1s ease infinite alternate;">⚡</div>
+      <div style="text-align:center;">
+        <div style="font-size:36px;animation:tutoBounce 0.8s ease 0.4s infinite alternate;">🤖</div>
+        <div style="font-size:10px;color:var(--red);margin-top:4px;font-weight:700;">NEXUS</div>
+      </div>
+    </div>`,
+
+    /* 2 — HP */
+    `<div style="text-align:center;width:100%;padding:0 20px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="font-size:13px;color:var(--muted);width:50px;text-align:right;">${isEn ? 'YOU' : 'TOI'}</div>
+        <div style="flex:1;height:14px;border-radius:7px;background:rgba(255,255,255,0.1);overflow:hidden;">
+          <div style="width:70%;height:100%;background:linear-gradient(90deg,var(--green),#00ff88);border-radius:7px;animation:tutoHP 2s ease infinite;"></div>
+        </div>
+        <div style="font-size:13px;color:var(--green);width:30px;">70</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="font-size:13px;color:var(--muted);width:50px;text-align:right;">NEXUS</div>
+        <div style="flex:1;height:14px;border-radius:7px;background:rgba(255,255,255,0.1);overflow:hidden;">
+          <div style="width:40%;height:100%;background:linear-gradient(90deg,var(--red),#ff6644);border-radius:7px;"></div>
+        </div>
+        <div style="font-size:13px;color:var(--red);width:30px;">40</div>
+      </div>
+    </div>`,
+
+    /* 3 — Supers */
+    `<div style="display:flex;align-items:center;justify-content:center;gap:16px;">
+      ${['⚡','👾','🛡️'].map((icon,i) => `
+        <div style="text-align:center;animation:tutoBounce 0.7s ease ${i*0.2}s infinite alternate;">
+          <div style="width:52px;height:52px;border-radius:14px;
+            background:rgba(0,180,255,0.12);border:1.5px solid rgba(0,180,255,0.3);
+            display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:4px;">${icon}</div>
+          <div style="font-size:9px;color:var(--muted);">${['Flash','Glitch','Shield'][i]}</div>
+        </div>`).join('')}
+    </div>`,
+
+    /* 4 — Streak */
+    `<div style="text-align:center;">
+      <div style="display:flex;justify-content:center;gap:6px;margin-bottom:10px;">
+        ${[1,2,3,4,5].map((n,i) => `
+          <div style="
+            width:32px;height:32px;border-radius:50%;font-size:14px;font-weight:800;
+            display:flex;align-items:center;justify-content:center;
+            background:${i < 3 ? 'linear-gradient(135deg,var(--gold),#ff8800)' : 'rgba(255,255,255,0.08)'};
+            color:${i < 3 ? '#000' : 'var(--muted)'};
+            animation:${i < 3 ? 'tutoBounce 0.6s ease '+(i*0.1)+'s infinite alternate' : 'none'};">
+            ${i < 3 ? '✓' : n}
+          </div>`).join('')}
+      </div>
+      <div style="font-size:22px;font-weight:800;color:var(--gold);font-family:'Syne',sans-serif;">
+        🔥 ×3 COMBO
+      </div>
+    </div>`,
+
+    /* 5 — Beat NEXUS */
+    `<div style="text-align:center;animation:tutoGlow 1.2s ease infinite alternate;">
+      <div style="font-size:48px;margin-bottom:8px;">🏆</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px;
+        background:linear-gradient(135deg,var(--gold),#ff8800);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+        ${isEn ? 'BEAT NEXUS!' : 'BATS NEXUS !'}
+      </div>
+    </div>`,
+  ];
+
+  const html = illustrations[step] || '';
+  return html;
+}
+
 
 function _getCurrentScreen() {
   return SCREEN_ORDER.find(id => !document.getElementById(id)?.classList.contains('hidden'))
@@ -599,6 +668,24 @@ let _splashBackCount  = 0;
 let _splashBackTimer  = null;
 
 function _handleBack() {
+  /* ── Vérifier d'abord les overlays / panels ── */
+  const recovModal = document.getElementById('recoveryModal');
+  if (recovModal) { recovModal.remove(); history.pushState({ ls: true }, ''); return; }
+
+  /* Settings panel is open when backdrop has pointer-events:auto */
+  const settingsBd = document.getElementById('settingsBackdrop');
+  if (settingsBd && settingsBd.style.pointerEvents === 'auto') {
+    closeSettings(); history.pushState({ ls: true }, ''); return;
+  }
+  const modalOverlay = document.getElementById('modalOverlay');
+  if (modalOverlay && !modalOverlay.classList.contains('hidden')) {
+    closeModal(); history.pushState({ ls: true }, ''); return;
+  }
+  const tutorialScreen = document.getElementById('screenTutorial');
+  if (tutorialScreen && !tutorialScreen.classList.contains('hidden')) {
+    closeTutorial(); history.pushState({ ls: true }, ''); return;
+  }
+
   const screen = _getCurrentScreen();
 
   /* ── Combat en cours : même action qu'Abandonner ── */
@@ -609,7 +696,7 @@ function _handleBack() {
 
   /* ── Lobby online : annuler ── */
   if (screen === 'screenOnlineLobby') {
-    if (confirm('Quitter la salle en attente ?')) cancelOnline();
+    if (confirm(t('confirm_quit_room'))) cancelOnline();
     return;
   }
 
@@ -625,7 +712,7 @@ function _handleBack() {
     /* Re-pousser 2 états pour que le prochain appui reste interceptable */
     history.pushState({ ls: true }, '');
     history.pushState({ ls: true }, '');
-    _showBackToast('Appuie encore pour quitter');
+    _showBackToast(t('back_to_quit'));
     _splashBackTimer = setTimeout(() => { _splashBackCount = 0; }, 2500);
     return;
   }
@@ -695,9 +782,150 @@ window.addEventListener('popstate', () => {
   _handleBack();
 });
 
+
+/* ══ SÉLECTEUR DE LANGUE (premier lancement) ══ */
+function _showLanguagePicker(onDone) {
+  let _selected = null;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'langPickOverlay';
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:9999',
+    'display:flex','align-items:center','justify-content:center',
+    'background:var(--bg)','padding:20px'
+  ].join(';');
+
+  const btnStyle = (active) => `
+    padding:16px;border-radius:16px;
+    border:2px solid ${active ? 'var(--blue-neon)' : 'var(--border)'};
+    background:${active ? 'rgba(0,180,255,0.10)' : 'var(--card)'};
+    color:var(--text);
+    font-family:'Syne',sans-serif;font-weight:800;font-size:16px;
+    cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:12px;
+    width:100%;-webkit-tap-highlight-color:transparent;`;
+
+  const continueBtnStyle = (enabled) => `
+    width:100%;padding:15px;border-radius:16px;border:none;
+    background:${enabled ? 'var(--blue-neon)' : 'rgba(0,180,255,0.2)'};
+    color:${enabled ? '#000' : 'rgba(0,180,255,0.4)'};
+    font-family:'Syne',sans-serif;font-weight:800;font-size:16px;
+    letter-spacing:1px;cursor:${enabled ? 'pointer' : 'default'};
+    transition:all .2s;-webkit-tap-highlight-color:transparent;`;
+
+  overlay.innerHTML = `
+    <div style="text-align:center;max-width:320px;width:100%;">
+      <div style="font-size:52px;margin-bottom:16px;">🌍</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:22px;
+        color:var(--text);margin-bottom:4px;">Choisissez votre langue</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:24px;">Choose your language</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+        <button id="langBtnFr" style="${btnStyle(false)}">
+          <span style="font-size:28px;">🇫🇷</span>
+          <div style="text-align:left;">
+            <div>Français</div>
+            <div style="font-size:11px;color:var(--muted);font-weight:500;font-family:'Space Grotesk',sans-serif;">French</div>
+          </div>
+          <span id="langCheckFr" style="margin-left:auto;font-size:18px;opacity:0;">✓</span>
+        </button>
+        <button id="langBtnEn" style="${btnStyle(false)}">
+          <span style="font-size:28px;">🇬🇧</span>
+          <div style="text-align:left;">
+            <div>English</div>
+            <div style="font-size:11px;color:var(--muted);font-weight:500;font-family:'Space Grotesk',sans-serif;">Anglais</div>
+          </div>
+          <span id="langCheckEn" style="margin-left:auto;font-size:18px;opacity:0;">✓</span>
+        </button>
+      </div>
+      <button id="langContinueBtn" style="${continueBtnStyle(false)}" disabled>
+        Continuer &nbsp;/&nbsp; Continue →
+      </button>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  function selectLang(lang) {
+    _selected = lang;
+    const frActive = lang === 'fr';
+    document.getElementById('langBtnFr').style.cssText = btnStyle(frActive);
+    document.getElementById('langBtnEn').style.cssText = btnStyle(!frActive);
+    document.getElementById('langCheckFr').style.opacity = frActive ? '1' : '0';
+    document.getElementById('langCheckEn').style.opacity = !frActive ? '1' : '0';
+    document.getElementById('langCheckFr').style.color = 'var(--blue-neon)';
+    document.getElementById('langCheckEn').style.color = 'var(--blue-neon)';
+    const btn = document.getElementById('langContinueBtn');
+    btn.style.cssText = continueBtnStyle(true);
+    btn.disabled = false;
+    btn.textContent = lang === 'fr' ? 'Continuer →' : 'Continue →';
+  }
+
+  function confirm() {
+    if (!_selected) return;
+    setLang(_selected);
+    applyI18N();
+    overlay.remove();
+    onDone && onDone();
+  }
+
+  document.getElementById('langBtnFr').addEventListener('click', () => selectLang('fr'));
+  document.getElementById('langBtnEn').addEventListener('click', () => selectLang('en'));
+  document.getElementById('langContinueBtn').addEventListener('click', confirm);
+}
+
+function _doFirstLaunchTutorial() {
+  localStorage.setItem('ls_tutorial_done', '1');
+  showTutorial();
+  const origClose = window.closeTutorial;
+  window.closeTutorial = function() {
+    origClose && origClose();
+    window.closeTutorial = origClose;
+    /* Après le tuto : proposer l'installation PWA si disponible */
+    if (window._pwaPrompt || /iphone|ipad|ipod/i.test(navigator.userAgent)) {
+      setTimeout(() => window.openPwaModal?.(), 1000);
+    }
+    if (!Save.getSavedName()) {
+      setTimeout(() => window.showNameSetup(false), 300);
+    }
+  };
+}
+
+/* ══ SWITCHER DE LANGUE DANS LES RÉGLAGES ══ */
+window.toggleLanguage = function() {
+  const newLang = getLang() === 'fr' ? 'en' : 'fr';
+  setLang(newLang);
+  applyI18N();
+  /* Mettre à jour le bouton */
+  const btn = document.getElementById('settingsLangBtn');
+  if (btn) btn.textContent = newLang === 'fr' ? '🇫🇷 FR / EN' : '🇬🇧 EN / FR';
+  /* Update theme/mute buttons */
+  const themeBtn = document.getElementById('themeBtn');
+  if (themeBtn) themeBtn.textContent = State.isDark ? t('theme_light') : t('theme_dark');
+  const muteBtn = document.getElementById('muteBtn');
+  if (muteBtn) muteBtn.textContent = State.isMuted ? t('sound_off') : t('sound_on');
+};
+
+
+/* ══ MODE INVITÉ — jouer sans compte ══ */
+window.playAsGuest = function() {
+  const isEn = window.LS_LANG === 'en';
+  /* Nom invité temporaire */
+  const guestName = isEn ? 'Guest' : 'Invité';
+  Save.savePlayerName(guestName);
+  State.oathNames = [guestName];
+  /* Créer la ligne Supabase en background pour que le leaderboard fonctionne */
+  import('./leaderboard.js').then(({ reserveName }) => reserveName(guestName).catch(() => {}));
+  /* Forcer niveau 1, relax pour découverte */
+  State.gameMode = 'story';
+  State.currentStoryLevel = 1;
+  State.aiDifficulty = 'easy';
+  showScreen('screenNameSetup');
+  document.getElementById('screenNameSetup')?.classList.add('hidden');
+  showScreen('screenOath');
+};
+
 /* ══ INIT ══ */
 (function init() {
   initTheme();
+  applyI18N();
   initCanvas();
   initAudioAutoplay();
   renderXPBar();
@@ -710,23 +938,14 @@ window.addEventListener('popstate', () => {
     m.loadProgressFromCloud().then(() => { renderXPBar(); _refreshPlayerBadge(); }).catch(() => {});
   }).catch(() => {});
 
-  /* Tutoriel premier lancement → puis demander le pseudo si pas encore défini */
-  if (!localStorage.getItem('ls_tutorial_done')) {
-    setTimeout(() => {
-      localStorage.setItem('ls_tutorial_done', '1');
-      showTutorial();
-      /* Après fermeture du tuto, demander le pseudo */
-      const origClose = window.closeTutorial;
-      window.closeTutorial = function() {
-        origClose && origClose();
-        window.closeTutorial = origClose; /* restaurer */
-        if (!Save.getSavedName()) {
-          setTimeout(() => window.showNameSetup(false), 300);
-        }
-      };
-    }, 600);
+  /* ── Premier lancement : langue → tutoriel → pseudo ── */
+  if (!localStorage.getItem('ls_lang')) {
+    setTimeout(() => _showLanguagePicker(() => {
+      _doFirstLaunchTutorial();
+    }), 500);
+  } else if (!localStorage.getItem('ls_tutorial_done')) {
+    setTimeout(() => _doFirstLaunchTutorial(), 600);
   } else if (!Save.getSavedName()) {
-    /* Retour après cache effacé sans tuto */
     setTimeout(() => window.showNameSetup(false), 800);
   }
 
@@ -735,7 +954,7 @@ window.addEventListener('popstate', () => {
   const totalStars = Save.getTotalStars();
   if (beaten.length > 0) {
     const storyDesc = document.querySelector('#screenSplash .mode-btn .mode-desc');
-    if (storyDesc) storyDesc.textContent = `Niveau ${beaten.length}/20 · ${totalStars}⭐ · Affronte NEXUS`;
+    if (storyDesc) storyDesc.textContent = `${beaten.length}/20 · ${totalStars}⭐`;
   }
 
   /* Service Worker PWA */
@@ -761,9 +980,9 @@ window.showRecoveryCode = async function() {
         style="position:absolute;top:12px;right:14px;background:none;border:none;
           font-size:20px;color:var(--muted);cursor:pointer;">✕</button>
       <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px;
-        color:var(--gold);margin-bottom:6px;">🔑 Code de récupération</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.5;">
-        Note ce code pour restaurer ta progression<br>sur un nouvel appareil ou après effacement du cache.
+        color:var(--gold);margin-bottom:6px;">${t('rec_title')}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.5;white-space:pre-line;">
+        ${t('rec_sub')}
       </div>
       <div id="recCodeDisplay" style="font-family:'Share Tech Mono',monospace;font-size:24px;
         font-weight:700;letter-spacing:3px;color:var(--cyan);
@@ -774,12 +993,12 @@ window.showRecoveryCode = async function() {
       <button onclick="window._copyRecCode()"
         style="width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--gold-neon);
           background:transparent;color:var(--gold-neon);font-weight:700;font-size:14px;
-          cursor:pointer;margin-bottom:10px;letter-spacing:1px;">📋 Copier le code</button>
-      <div style="margin:16px 0;font-size:11px;color:var(--muted);letter-spacing:1px;">— OU —</div>
+          cursor:pointer;margin-bottom:10px;letter-spacing:1px;">${t('rec_copy')}</button>
+      <div style="margin:16px 0;font-size:11px;color:var(--muted);letter-spacing:1px;">${t('diff_badge_easy').startsWith('E')?'— OR —':'— OU —'}</div>
       <div style="font-size:13px;color:var(--fg);margin-bottom:10px;font-weight:600;">
-        Restaurer depuis un code :
+        ${t('rec_restore_label')}
       </div>
-      <input id="recCodeInput" placeholder="Ex: TIGRE-4821" maxlength="12"
+      <input id="recCodeInput" placeholder="${t('rec_restore_placeholder')}" maxlength="12"
         style="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;
           border:1.5px solid var(--border);background:var(--bg);color:var(--fg);
           font-family:'Share Tech Mono',monospace;font-size:16px;text-align:center;
@@ -788,7 +1007,7 @@ window.showRecoveryCode = async function() {
       <button onclick="window._restoreFromCode()"
         style="width:100%;padding:12px;border-radius:12px;border:none;
           background:var(--gold-neon);color:#1a1200;font-weight:800;font-size:14px;
-          cursor:pointer;letter-spacing:1px;">🔄 Restaurer ma progression</button>
+          cursor:pointer;letter-spacing:1px;">${t('rec_restore_btn')}</button>
       <div id="recMsg" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
     </div>`;
   document.body.appendChild(m);
@@ -797,20 +1016,33 @@ window.showRecoveryCode = async function() {
   import('./leaderboard.js').then(async ({ getOrCreateRecoveryCode }) => {
     const code = await getOrCreateRecoveryCode();
     const disp = document.getElementById('recCodeDisplay');
-    if (disp) disp.textContent = code || '(hors ligne)';
-    window._currentRecCode = code;
+    if (code) {
+      if (disp) disp.textContent = code;
+      window._currentRecCode = code;
+    } else {
+      if (disp) {
+        disp.textContent = t('diff_badge_easy').startsWith('E') ? '(offline)' : '(hors ligne)';
+        disp.style.opacity = '0.7';
+      }
+      window._currentRecCode = null;
+    }
   }).catch(() => {
     const disp = document.getElementById('recCodeDisplay');
-    if (disp) disp.textContent = '(hors ligne)';
+    if (disp) disp.textContent = t('diff_badge_easy').startsWith('E') ? '(offline)' : '(hors ligne)';
+    window._currentRecCode = null;
   });
 };
 
 window._copyRecCode = function() {
   const code = window._currentRecCode;
-  if (!code) return;
+  if (!code) {
+    const msg = document.getElementById('recMsg');
+    if (msg) { msg.style.color = 'var(--muted)'; msg.textContent = t('diff_badge_easy').startsWith('E') ? 'Code unavailable offline.' : 'Code indisponible hors ligne.'; }
+    return;
+  }
   navigator.clipboard.writeText(code).then(() => {
     const msg = document.getElementById('recMsg');
-    if (msg) { msg.style.color = 'var(--green)'; msg.textContent = '✅ Code copié !'; }
+    if (msg) { msg.style.color = 'var(--green)'; msg.textContent = t('rec_copied'); }
   }).catch(() => {
     const msg = document.getElementById('recMsg');
     if (msg) { msg.style.color = 'var(--muted)'; msg.textContent = code; }
@@ -820,12 +1052,12 @@ window._copyRecCode = function() {
 window._restoreFromCode = async function() {
   const inp = document.getElementById('recCodeInput');
   const msg = document.getElementById('recMsg');
-  if (!inp || !inp.value.trim()) { if (msg) { msg.style.color='var(--red)'; msg.textContent='Entre un code.'; } return; }
-  if (msg) { msg.style.color='var(--muted)'; msg.textContent='Restauration…'; }
+  if (!inp || !inp.value.trim()) { if (msg) { msg.style.color='var(--red)'; msg.textContent=t('rec_enter_code'); } return; }
+  if (msg) { msg.style.color='var(--muted)'; msg.textContent=t('rec_restoring'); }
   try {
     const { restoreFromRecoveryCode } = await import('./leaderboard.js');
     const name = await restoreFromRecoveryCode(inp.value.trim());
-    if (msg) { msg.style.color='var(--green)'; msg.textContent=`✅ Progression de ${name} restaurée !`; }
+    if (msg) { msg.style.color='var(--green)'; msg.textContent=t('rec_restored', {name}); }
     setTimeout(() => {
       document.getElementById('recoveryModal')?.remove();
       renderXPBar();

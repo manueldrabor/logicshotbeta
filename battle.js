@@ -2,6 +2,7 @@
    battle.js — Logique de combat LogicShot
 ══════════════════════════════════════ */
 import { State, C, Save } from './state.js';
+import { t } from './i18n.js';
 import { sfx, pauseMenuMusicForBattle, resumeMenuMusic } from './audio.js';
 import {
   renderFighters, updateHP, updateAllSuperDots, animFighter, setAbsentBadge,
@@ -13,11 +14,33 @@ import { generateRounds } from './formula.js';
 
 /* ── Profils IA ── */
 const AI_PROFILES = {
-  relax:  { minFrac: 0.55, maxFrac: 0.90, accuracy: 0.60, attemptChance: 0.80 },
-  easy:   { minFrac: 0.54, maxFrac: 0.88, accuracy: 0.68, attemptChance: 0.84 },
-  medium: { minFrac: 0.34, maxFrac: 0.64, accuracy: 0.79, attemptChance: 0.90 },
-  hard:   { minFrac: 0.18, maxFrac: 0.46, accuracy: 0.89, attemptChance: 0.95 }
+  relax:  { minFrac: 0.60, maxFrac: 0.95, accuracy: 0.55, attemptChance: 0.75 },
+  easy:   { minFrac: 0.52, maxFrac: 0.85, accuracy: 0.68, attemptChance: 0.84 },
+  medium: { minFrac: 0.30, maxFrac: 0.60, accuracy: 0.80, attemptChance: 0.92 },
+  hard:   { minFrac: 0.14, maxFrac: 0.40, accuracy: 0.91, attemptChance: 0.97 }
 };
+
+/* ── Messages de personnalité NEXUS ── */
+const NEXUS_COMMENTS = {
+  fr: {
+    nexusMistake:  ['NEXUS doute…', 'Erreur de calcul…', 'Recalibration…', 'NEXUS hésite…'],
+    nexusPressure: ['NEXUS accélère !', 'Mode pression activé', 'NEXUS est concentrée', 'Plus rapide !'],
+    nexusPanic:    ['NEXUS en mode survie !', "Algorithme d'urgence !", 'NEXUS se bat !'],
+    nexusConfident:['NEXUS domine.', 'Trop facile.', 'NEXUS est en forme.', 'Aucune résistance.'],
+  },
+  en: {
+    nexusMistake:  ['NEXUS doubts…', 'Calculation error…', 'Recalibrating…', 'NEXUS hesitates…'],
+    nexusPressure: ['NEXUS accelerates!', 'Pressure mode on', 'NEXUS is focused', 'Getting faster!'],
+    nexusPanic:    ['NEXUS survival mode!', 'Emergency algorithm!', 'NEXUS fights back!'],
+    nexusConfident:['NEXUS dominates.', 'Too easy.', 'NEXUS is on fire.', 'No resistance.'],
+  }
+};
+
+function _nexusMsg(key) {
+  const lang = window.LS_LANG === 'en' ? 'en' : 'fr';
+  const arr = NEXUS_COMMENTS[lang][key] || [];
+  return arr[Math.floor(Math.random() * arr.length)] || '';
+}
 
 function getFormulaComplexity(round) {
   const formula = round.formula || '';
@@ -34,22 +57,56 @@ function getFormulaComplexity(round) {
 function getAIProfile(round) {
   const base = { ...(AI_PROFILES[State.aiDifficulty] || AI_PROFILES.easy) };
   const ai = State.players.find(p => p.isAI);
+  const player = State.players.find(p => !p.isAI && !p.isRemote);
   const hpRatio = ai ? ai.hp / C.MAX_HP : 1;
+  const playerHpRatio = player ? player.hp / C.MAX_HP : 1;
   const complexity = getFormulaComplexity(round);
+  const roundProgress = State.roundIndex / C.ROUNDS; // 0→1 au fil des rounds
+  const playerStreak = State.playerStreak || 0;
+
+  /* Difficulté de la formule */
   base.minFrac += complexity * 0.40;
   base.maxFrac += complexity * 0.55;
   base.accuracy -= complexity * 0.60;
-  if (hpRatio <= 0.70 && hpRatio > 0.40) {
-    base.minFrac += 0.04; base.maxFrac += 0.06; base.accuracy -= 0.04;
-  } else if (hpRatio <= 0.40) {
-    if (State.aiDifficulty === 'hard') { base.minFrac -= 0.03; base.maxFrac -= 0.02; base.accuracy -= 0.06; }
-    else if (State.aiDifficulty === 'medium') { base.minFrac -= 0.01; base.maxFrac += 0.02; base.accuracy -= 0.07; }
-    else { base.minFrac += 0.08; base.maxFrac += 0.12; base.accuracy -= 0.10; base.attemptChance -= 0.08; }
+
+  /* ── Accélération progressive : NEXUS devient 15% plus rapide au round 10 ── */
+  const speedBoost = roundProgress * (State.aiDifficulty === 'hard' ? 0.20 : State.aiDifficulty === 'medium' ? 0.12 : 0.06);
+  base.minFrac = Math.max(base.minFrac - speedBoost, 0.08);
+  base.maxFrac = Math.max(base.maxFrac - speedBoost, base.minFrac + 0.05);
+
+  /* ── Mode pression : le joueur est en streak → NEXUS réagit ── */
+  if (playerStreak >= 3 && State.aiDifficulty !== 'relax') {
+    const pressureBoost = Math.min(playerStreak * 0.025, 0.12);
+    base.minFrac = Math.max(base.minFrac - pressureBoost, 0.06);
+    base.maxFrac = Math.max(base.maxFrac - pressureBoost, base.minFrac + 0.05);
+    base.accuracy = Math.min(base.accuracy + 0.05, 0.97);
   }
-  base.minFrac = Math.max(0.08, Math.min(base.minFrac, 0.95));
+
+  /* ── NEXUS en danger (HP bas) : comportement selon difficulté ── */
+  if (hpRatio <= 0.70 && hpRatio > 0.40) {
+    base.minFrac += 0.03; base.maxFrac += 0.05; base.accuracy -= 0.04;
+  } else if (hpRatio <= 0.40) {
+    if (State.aiDifficulty === 'hard') {
+      /* Hard : NEXUS se bat encore plus fort */
+      base.minFrac -= 0.05; base.maxFrac -= 0.04; base.accuracy += 0.04;
+    } else if (State.aiDifficulty === 'medium') {
+      /* Medium : légère panique */
+      base.minFrac += 0.02; base.maxFrac += 0.04; base.accuracy -= 0.05;
+    } else {
+      /* Easy/Relax : grande panique */
+      base.minFrac += 0.10; base.maxFrac += 0.15; base.accuracy -= 0.12; base.attemptChance -= 0.10;
+    }
+  }
+
+  /* ── NEXUS dominante (joueur HP bas) : elle se relâche légèrement ── */
+  if (playerHpRatio <= 0.30 && State.aiDifficulty === 'hard') {
+    base.minFrac += 0.04; base.maxFrac += 0.06; /* une touche d'arrogance */
+  }
+
+  base.minFrac = Math.max(0.06, Math.min(base.minFrac, 0.95));
   base.maxFrac = Math.max(base.minFrac + 0.05, Math.min(base.maxFrac, 1.15));
-  base.accuracy = Math.max(0.25, Math.min(base.accuracy, 0.97));
-  base.attemptChance = Math.max(0.55, Math.min(base.attemptChance, 0.99));
+  base.accuracy = Math.max(0.22, Math.min(base.accuracy, 0.97));
+  base.attemptChance = Math.max(0.50, Math.min(base.attemptChance, 0.99));
   return base;
 }
 
@@ -122,7 +179,7 @@ export function loadRound() {
   if (State.currentMechanic === 'speed' && !isRelaxMode()) roundTime = Math.max(8, Math.floor(round.time * 0.55));
   if (State.currentMechanic === 'blind') roundTime = Math.floor(round.time * 1.35);
 
-  const diffLabel = { easy: 'FACILE', medium: 'MOYEN', hard: 'DIFFICILE' };
+  const diffLabel = { relax: t('diff_badge_relax'), easy: t('diff_badge_easy'), medium: t('diff_badge_medium'), hard: t('diff_badge_hard') };
   const diffCls   = { easy: 'diff-easy', medium: 'diff-medium', hard: 'diff-hard' };
   const ptCls     = { easy: 'pt-easy', medium: 'pt-medium', hard: 'pt-hard' };
   const dmg = C.DAMAGE[round.difficulty];
@@ -139,7 +196,7 @@ export function loadRound() {
   fd.className = 'formula-big';
   if (State.currentMechanic === 'blind') {
     fd.className = 'formula-big blind-mode'; fd.textContent = round.formula;
-    bh.style.display = 'block'; fl.textContent = 'AVEUGLE — touche pour révéler';
+    bh.style.display = 'block'; fl.textContent = t('diff_badge_easy').startsWith('E') ? 'BLIND — tap to reveal' : 'AVEUGLE — touche pour révéler';
   } else if (State.currentMechanic === 'speed') {
     fd.textContent = round.formula; bh.style.display = 'none';
     fl.textContent = '⚡ SPEED — retire 10 HP supplémentaires à la cible';
@@ -148,7 +205,7 @@ export function loadRound() {
     fl.textContent = '🔢 CHOIX — sélectionne le résultat';
   } else {
     fd.textContent = round.formula; bh.style.display = 'none';
-    fl.textContent = 'RÉSOUS LA FORMULE';
+    fl.textContent = t('formula_label');
   }
 
   const faClean = document.getElementById('formulaAnswer');
@@ -245,7 +302,7 @@ function startTimer(round, absoluteStart) {
         if (fa) { fa.textContent = `= ${_ansTimer}`; fa.style.display = 'block'; fa.classList.add('answer-revealed'); }
       }));
       freezeTimerUI();
-      showFeedback(`⏰ Temps écoulé ! Réponse : ${round.answer} — −${C.NO_ANSWER_PENALTY} HP pour tous`, 'draw');
+      showFeedback(`⏰ ${t("diff_badge_easy").startsWith("E")?"Time's up":"Temps écoulé"} — ${round.answer} − ${C.NO_ANSWER_PENALTY} HP`, 'draw');
       setTimeout(() => hideFeedback(), 4500);
       setTimeout(() => {
         clearTimeout(State.shieldExpireTimer); clearTimeout(State.aiShieldExpireTimer);
@@ -292,7 +349,7 @@ function scheduleAI(round) {
       else { const spread = round.difficulty === 'easy' ? 4 : round.difficulty === 'medium' ? 6 : 8; let err = Math.floor(Math.random() * spread) + 1; if (Math.random() > 0.5) err *= -1; aiVal = round.answer + err; }
       ai.answerVal = aiVal;
       if (aiVal === round.answer) { ai.answered = true; sfx.correct(); resolveCorrectAnswer(ai, round); }
-      else { ai.hp = Math.max(0, ai.hp - C.SELF_DAMAGE); updateHP(ai); sfx.wrong(); animFighter(ai.id, 'hurt'); showHpLossFX(ai.id, `−${C.SELF_DAMAGE}`, 'var(--red)'); showFeedback(`NEXUS se trompe — −${C.SELF_DAMAGE} HP`, 'fail'); if (ai.hp <= 0) { finishBattle(); return; } if (attempts < maxAttempts) doAttempt(); }
+      else { ai.hp = Math.max(0, ai.hp - C.SELF_DAMAGE); updateHP(ai); sfx.wrong(); animFighter(ai.id, 'hurt'); showHpLossFX(ai.id, `−${C.SELF_DAMAGE}`, 'var(--red)'); showFeedback(`🤖 ${_nexusMsg('nexusMistake')} −${C.SELF_DAMAGE} HP`, 'fail'); if (ai.hp <= 0) { finishBattle(); return; } if (attempts < maxAttempts) doAttempt(); }
     }, delay);
   }
   doAttempt();
@@ -337,7 +394,7 @@ function maybeFireAISuper(roundIdx) {
         setTimeout(() => fd.classList.remove('flash'), 700);
       } else if (s.type === 'glitch') {
         fd.classList.add('glitch'); showImpactFX('👾', 'var(--purple)');
-        showFeedback(`<span style="color:var(--red);font-weight:800;">🤖 NEXUS active 👾 Glitch — formule altérée !</span>`, 'fail');
+        showFeedback(`<span style="color:var(--red);font-weight:800;">🤖 NEXUS 👾 Glitch — ${t('diff_badge_easy').startsWith('E')?'formula scrambled!':'formule altérée !'}</span>`, 'fail');
         setTimeout(() => fd.classList.remove('glitch'), 10000);
       } else if (s.type === 'shield') {
         if (State.aiShieldActive) return;
@@ -461,7 +518,7 @@ export function submitAnswer(pid) {
     if (State.gameMode === 'online') State.onlineAdapter?.broadcastAnswer(val, Date.now(), false, State.roundIndex);
     State.playerStreak = 0; renderScoreBar();
     if (p.hp <= 0) { State.roundActive = false; clearInterval(State.timerInterval); freezeTimerUI(); document.querySelectorAll('.ans-input,.fire-btn,.numpad-btn').forEach(b => b.disabled = true); showFeedback(`💀 ${p.name} a épuisé ses HP — réponse correcte : ${round.answer}`, 'fail'); setTimeout(() => finishBattle(), 5000); }
-    else { showFeedback(`Mauvaise réponse — −${C.SELF_DAMAGE} HP`, 'fail'); }
+    else { showFeedback(`${t('diff_badge_easy').startsWith('E')?'Wrong answer':'Mauvaise réponse'} — −${C.SELF_DAMAGE} HP`, 'fail'); }
   }
 }
 
@@ -493,7 +550,7 @@ export function tapOrderBtn(idx, val, correct) {
       if (p.hp <= 0) { State.roundActive = false; clearInterval(State.timerInterval); freezeTimerUI(); showFeedback(`💀 ${p.name} a épuisé ses HP — réponse correcte : ${correct}`, 'fail'); setTimeout(() => finishBattle(), 5000); }
     } else {
       if (attEl) attEl.textContent = `${attLeft} essai${attLeft > 1 ? 's' : ''}`;
-      showFeedback(`Mauvaise réponse — −${C.SELF_DAMAGE} HP · ${attLeft} essai restant`, 'fail');
+      showFeedback(`${t('diff_badge_easy').startsWith('E')?'Wrong answer':'Mauvaise réponse'} — −${C.SELF_DAMAGE} HP`, 'fail');
       if (p.hp <= 0) { State.roundActive = false; clearInterval(State.timerInterval); freezeTimerUI(); document.querySelectorAll('.order-btn').forEach(b => b.disabled = true); showFeedback(`💀 ${p.name} a épuisé ses HP — réponse correcte : ${correct}`, 'fail'); setTimeout(() => finishBattle(), 5000); }
     }
   }
@@ -567,7 +624,14 @@ function resolveCorrectAnswer(winner, round) {
     showScorePop(pts, winner.id); renderScoreBar();
     animateXPGain(C.XP_PER_ROUND_WIN);
     if (isCritical) { sfx.criticalPlayer(); showCriticalFX(true); }
-    else if (State.playerStreak >= 3) sfx.combo();
+    else if (State.playerStreak >= 3) {
+    sfx.combo();
+    const ai = State.players.find(p => p.isAI);
+    if (ai && State.playerStreak >= 3 && State.aiDifficulty !== 'relax') {
+      const pressureMsg = _nexusMsg('nexusPressure');
+      if (pressureMsg) setTimeout(() => showFeedback(`🤖 ${pressureMsg}`, 'draw'), 800);
+    }
+  }
     else sfx.scorePop();
   } else {
     State.playerStreak = 0; renderScoreBar();
@@ -603,7 +667,7 @@ export function renderSupers() {
     if (State.unlockedSupers.flash)
       html += `<button class="sp-btn flash-btn" ${fl <= 0 || p.superCooldown.flash ? 'disabled' : ''} aria-label="Super Flash, ${fl} utilisations restantes" onclick="window._activateSuper('${p.id}','flash')"><span class="sp-name">⚡ Flash</span><span class="sp-desc">(−10s les 2 timers)</span><div class="sp-uses">${fl}/2</div></button>`;
     if (State.unlockedSupers.glitch)
-      html += `<button class="sp-btn glitch-btn" ${gl <= 0 || p.superCooldown.glitch ? 'disabled' : ''} aria-label="Super Glitch, ${gl} utilisations restantes" onclick="window._activateSuper('${p.id}','glitch')"><span class="sp-name">👾 Glitch</span><span class="sp-desc">(altère formule)</span><div class="sp-uses">${gl}/2</div></button>`;
+      html += `<button class="sp-btn glitch-btn" ${gl <= 0 || p.superCooldown.glitch ? 'disabled' : ''} onclick="window._activateSuper('${p.id}','glitch')"><span class="sp-name">👾 Glitch</span><span class="sp-desc">${t('diff_badge_easy').startsWith('E')?'(scrambles formula)':'(altère formule)'}</span><div class="sp-uses">${gl}/2</div></button>`;
     if (State.unlockedSupers.shield)
       html += `<button class="sp-btn shield-btn ${State.playerShieldActive ? 'active-shield' : ''}" ${sh <= 0 || p.superCooldown.shield ? 'disabled' : ''} aria-label="Super Bouclier, ${sh} utilisation restante" onclick="window._activateSuper('${p.id}','shield')"><span class="sp-name">🛡️ Bouclier</span><span class="sp-desc">(bloque 1 attaque)</span><div class="sp-uses">${sh}/1</div></button>`;
     zone.innerHTML = html;
@@ -950,17 +1014,27 @@ function showResults(forceQuit = false, humanWon = false, winner = null, stars =
 
   document.getElementById('resEmoji').textContent = isOpponentWin ? (w.isRemote ? '⚔️' : '🤖') : humanWon ? '🏆' : '💀';
   document.getElementById('resTitle').textContent =
-    isOpponentWin && State.gameMode === 'online' ? `${w.name} GAGNE` :
-    isOpponentWin ? 'NEXUS GAGNE' :
-    forceQuit ? 'ABANDON' :
-    humanWon ? `${w.name} GAGNE` : 'ÉGALITÉ';
+    isOpponentWin && State.gameMode === 'online' ? `${w.name} ${t('diff_badge_easy').startsWith('E')?'WINS':'GAGNE'}` :
+    isOpponentWin ? `NEXUS ${t('diff_badge_easy').startsWith('E')?'WINS':'GAGNE'}` :
+    forceQuit ? (t('diff_badge_easy').startsWith('E')?'FORFEIT':'ABANDON') :
+    humanWon ? `${w.name} ${t('diff_badge_easy').startsWith('E')?'WINS':'GAGNE'}` : (t('diff_badge_easy').startsWith('E')?'DRAW':'ÉGALITÉ');
 
   const subMsgs = {
-    win:       ['Bien joué, guerrier.', 'NEXUS est impressionnée.', 'Le calcul coule dans tes veines.'],
-    winOnline: ['Ton adversaire n\'a pas résisté !', 'Calcul + vitesse = victoire.', 'Bravo champion !'],
-    lose:      ['NEXUS est implacable…', 'Recalibration requise.', 'Reviens quand tu seras prêt.'],
-    loseOnline:['Ton adversaire était plus rapide.', 'La prochaine fois sera la bonne !', 'Revanche ?'],
-    quit:      ['Défaite enregistrée.', 'On ne fuit pas indéfiniment.']
+    win:       t('diff_badge_easy').startsWith('E')
+      ? ['Well played, warrior.', 'NEXUS is impressed.', 'Math flows through your veins.']
+      : ['Bien joué, guerrier.', 'NEXUS est impressionnée.', 'Le calcul coule dans tes veines.'],
+    winOnline: t('diff_badge_easy').startsWith('E')
+      ? ['Your opponent couldn\'t keep up!', 'Math + speed = victory.', 'Champion!']
+      : ['Ton adversaire n\'a pas résisté !', 'Calcul + vitesse = victoire.', 'Bravo champion !'],
+    lose:      t('diff_badge_easy').startsWith('E')
+      ? ['NEXUS is relentless…', 'Recalibration required.', 'Come back when you\'re ready.']
+      : ['NEXUS est implacable…', 'Recalibration requise.', 'Reviens quand tu seras prêt.'],
+    loseOnline: t('diff_badge_easy').startsWith('E')
+      ? ['Your opponent was faster.', 'Next time will be yours!', 'Rematch?']
+      : ['Ton adversaire était plus rapide.', 'La prochaine fois sera la bonne !', 'Revanche ?'],
+    quit:      t('diff_badge_easy').startsWith('E')
+      ? ['Defeat recorded.', 'You can\'t run forever.']
+      : ['Défaite enregistrée.', 'On ne fuit pas indéfiniment.']
   };
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const sub = State.gameMode === 'online'
@@ -975,7 +1049,7 @@ function showResults(forceQuit = false, humanWon = false, winner = null, stars =
     <div class="res-xp-badge" style="color:${xpBadgeColor}">
       <span class="res-xp-icon">⚡</span>
       <span>+${xpGain} XP</span>
-      <span class="res-xp-level">· Nv.${xpInfo.level} ${xpInfo.title}</span>
+      <span class="res-xp-level">· ${t("diff_badge_easy").startsWith("E")?"Lv.":"Nv."}${xpInfo.level} ${xpInfo.title}</span>
     </div>` : '';
   const xpBadgeEl = document.getElementById('resXpBadge');
   if (xpBadgeEl) xpBadgeEl.innerHTML = xpHtml;
@@ -995,7 +1069,9 @@ function showResults(forceQuit = false, humanWon = false, winner = null, stars =
 
   const rewardBox = document.getElementById('rewardBox');
   if (State.gameMode === 'story' && humanWon && State.currentStoryLevel === 20) {
-    rewardBox.innerHTML = `<div class="reward-box"><div class="reward-title">🎖️ CHAMPION DE LOGICSHOT</div><div class="reward-text">Tu as vaincu NEXUS dans sa forme ultime.<br>Mon créateur serait fier. Moi aussi.<br><br>🏅 Titre débloqué : <strong>Maître du Calcul</strong><br>⭐ Bonus : +30 étoiles permanentes<br>🔓 Mode Défi Infini — bientôt disponible</div></div>`;
+    rewardBox.innerHTML = t('diff_badge_easy').startsWith('E')
+    ? `<div class="reward-box"><div class="reward-title">🎖️ LOGICSHOT CHAMPION</div><div class="reward-text">You defeated NEXUS in her ultimate form.<br>My creator would be proud. So am I.<br><br>🏅 Title unlocked: <strong>Calculus Master</strong><br>⭐ Bonus: +30 permanent stars<br>🔓 Infinite Challenge — coming soon</div></div>`
+    : `<div class="reward-box"><div class="reward-title">🎖️ CHAMPION DE LOGICSHOT</div><div class="reward-text">Tu as vaincu NEXUS dans sa forme ultime.<br>Mon créateur serait fier. Moi aussi.<br><br>🏅 Titre débloqué : <strong>Maître du Calcul</strong><br>⭐ Bonus : +30 étoiles permanentes<br>🔓 Mode Défi Infini — bientôt disponible</div></div>`;
   } else rewardBox.innerHTML = '';
 
   const medals = ['🥇','🥈','💀'];
@@ -1005,27 +1081,27 @@ function showResults(forceQuit = false, humanWon = false, winner = null, stars =
   }).join('');
 
   const btns = document.getElementById('resBtns');
-  const playerName = State.players.find(p => !p.isAI && !p.isRemote)?.name || 'Joueur';
-  const shareBtn = `<button class="res-btn outline" aria-label="Partager mon score" onclick="window._shareResult('${playerName}',${State.battleScore},${stars},${humanWon ? 1 : 0},${State.gameMode === 'story' ? State.currentStoryLevel : 0})">📤 Partager mon score</button>`;
+  const playerName = State.players.find(p => !p.isAI && !p.isRemote)?.name || t('online_player_label');
+  const shareBtn = `<button class="res-btn outline" aria-label="Partager mon score" onclick="window._shareResult('${playerName}',${State.battleScore},${stars},${humanWon ? 1 : 0},${State.gameMode === 'story' ? State.currentStoryLevel : 0})">${t('diff_badge_easy').startsWith('E')?'📤 Share my score':'📤 Partager mon score'}</button>`;
 
   if (State.gameMode === 'story') {
     const showFinale = humanWon && State.currentStoryLevel === 20;
     btns.innerHTML = `
       ${showFinale ? `<button class="res-btn gold" onclick="window._showNarrative('finale',()=>window._openStoryMap())">📖 ÉPILOGUE</button>` : ''}
-      <button class="res-btn ${showFinale ? 'outline' : 'gold'}" onclick="window._openStoryMap()">Carte des niveaux</button>
-      <button class="res-btn outline" onclick="window._replayStoryLevel()">🔁 Rejouer niv. ${State.currentStoryLevel}</button>
+      <button class="res-btn ${showFinale ? 'outline' : 'gold'}" onclick="window._openStoryMap()">${t("diff_badge_easy").startsWith("E")?"Story map":"Carte des niveaux"}</button>
+      <button class="res-btn outline" onclick="window._replayStoryLevel()">🔁 ${t("diff_badge_easy").startsWith("E")?"Replay Lv."+State.currentStoryLevel:"Rejouer niv. "+State.currentStoryLevel}</button>
       ${shareBtn}
-      <button class="res-btn outline" onclick="window._goSplash()">🏠 Accueil</button>`;
+      <button class="res-btn outline" onclick="window._goSplash()">🏠 ${t("diff_badge_easy").startsWith("E")?"Home":"Accueil"}</button>`;
   } else if (State.gameMode === 'online') {
     btns.innerHTML = `
-      <button class="res-btn gold" onclick="window.startOnlineMode()">⚔️ Revanche</button>
-      <button class="res-btn outline" onclick="window._showLeaderboard()">🏆 Classement</button>
+      <button class="res-btn gold" onclick="window.startOnlineMode()">⚔️ ${t("diff_badge_easy").startsWith("E")?"Rematch":"Revanche"}</button>
+      <button class="res-btn outline" onclick="window._showLeaderboard()">🏆 ${t("diff_badge_easy").startsWith("E")?"Leaderboard":"Classement"}</button>
       ${shareBtn}
-      <button class="res-btn outline" onclick="window._goSplash()">🏠 Accueil</button>`;
+      <button class="res-btn outline" onclick="window._goSplash()">🏠 ${t("diff_badge_easy").startsWith("E")?"Home":"Accueil"}</button>`;
   } else {
     btns.innerHTML = `
-      <button class="res-btn gold" onclick="window._goSplash()">Retour au Menu</button>
-      <button class="res-btn outline" onclick="window._showLeaderboard()">🏆 Classement</button>
+      <button class="res-btn gold" onclick="window._goSplash()">${t("diff_badge_easy").startsWith("E")?"← Back to menu":"← Retour au menu"}</button>
+      <button class="res-btn outline" onclick="window._showLeaderboard()">🏆 ${t("diff_badge_easy").startsWith("E")?"Leaderboard":"Classement"}</button>
       ${shareBtn}`;
   }
 
@@ -1197,7 +1273,7 @@ function _onlineCountdownThenLoad(startAt, mode) {
       if (fa) { fa.textContent = ''; fa.style.display = 'none'; fa.className = 'formula-answer'; }
       const fd = document.getElementById('formulaDisplay');
       const fl = document.getElementById('formulaLabel');
-      if (fl) fl.textContent = 'SYNCHRONISATION…';
+      if (fl) fl.textContent = t('diff_badge_easy').startsWith('E') ? 'SYNCING…' : 'SYNCHRONISATION…';
       if (fd) {
         fd.className = 'formula-big';
         fd.style.cssText = `font-size:18px;color:var(--cyan);letter-spacing:4px;

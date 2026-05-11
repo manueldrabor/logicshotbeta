@@ -4,6 +4,7 @@
    Score x combo · Best score Supabase
 ══════════════════════════════════════ */
 import { State, Save } from './state.js';
+import { t, getLang } from './i18n.js';
 import { sfx } from './audio.js';
 import { showScreen } from './ui.js';
 import { generateRounds } from './formula.js';
@@ -47,32 +48,34 @@ async function _saveBestOnline(score) {
   localStorage.setItem('ls_survival_best', score.toString());
   const deviceId = Save.getDeviceId();
   try {
-    const rows = await _supaFetch(
+    let rows = await _supaFetch(
       `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=id,survival_best`
     );
+
+    /* ── Étape 1 : créer la ligne si elle n'existe pas ── */
     if (rows.length === 0) {
-      /* Pas encore de ligne → créer l'entrée avec le nom du joueur */
-      const name = Save.getSavedName() || 'Joueur';
-      await _supaFetch('leaderboard', {
-        method: 'POST',
-        body: JSON.stringify({
-          device_id: deviceId,
-          name,
-          elo: 1000,
-          wins: 0,
-          survival_best: score
-        })
-      });
-      return;
+      const name = Save.getSavedName() || (window.LS_LANG === 'en' ? 'Guest' : 'Invité');
+      try {
+        const inserted = await _supaFetch('leaderboard', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify({ device_id: deviceId, name, elo: 1000, wins: 0 })
+        });
+        rows = inserted && inserted.length > 0 ? inserted : [];
+      } catch(e2) { /* schema issue — on continue quand même */ }
     }
-    if (score > (rows[0].survival_best || 0)) {
-      await _supaFetch(`leaderboard?id=eq.${rows[0].id}`, {
-        method: 'PATCH',
-        headers: { Prefer: '' },
-        body: JSON.stringify({ survival_best: score, updated_at: new Date().toISOString() })
-      });
+
+    /* ── Étape 2 : PATCH survival_best séparément ── */
+    if (rows.length > 0) {
+      if (score > (rows[0].survival_best || 0)) {
+        await _supaFetch(`leaderboard?id=eq.${rows[0].id}`, {
+          method: 'PATCH',
+          headers: { Prefer: '' },
+          body: JSON.stringify({ survival_best: score, updated_at: new Date().toISOString() })
+        });
+      }
     }
-  } catch(e) { /* fail silently */ }
+  } catch(e) { /* fail silently — localStorage reste la source de vérité */ }
 }
 
 /* ══ CONSTANTES ══ */
@@ -202,7 +205,7 @@ function _onAnswer() {
     _combo    = 0;
     _timeBank = Math.max(0, _timeBank - TIME_WRONG);
     sfx.wrong?.();
-    _showFeedback(`❌ Réponse : ${_round.answer} · −${TIME_WRONG}s`, '#ff4444');
+    _showFeedback(`❌ ${getLang()==='en'?'Answer':'Réponse'} : ${_round.answer} · −${TIME_WRONG}s`, '#ff4444');
     /* Afficher la bonne réponse en doré pendant 5s */
     const fa = document.getElementById('svInput');
     if (fa) { fa.value = `= ${_round.answer}`; fa.style.color = 'var(--gold)'; }
@@ -223,7 +226,7 @@ function _onTimeout() {
   _timeBank = 0;
   _setInputsDisabled(true);
   sfx.wrong?.();
-  _showFeedback(`⏰ Temps écoulé ! = ${_round.answer}`, '#ff4444');
+  _showFeedback(`⏰ ${getLang()==='en'?'Time\'s up':'Temps écoulé'} ! = ${_round.answer}`, '#ff4444');
   _updateBank();
   setTimeout(() => _gameOver(), 1200);
 }
@@ -275,7 +278,7 @@ export function svQuit() {
 
 /* ══ RENDER ══ */
 function _renderQuestion() {
-  const diffLabel = { easy: 'FACILE', medium: 'MOYEN', hard: 'DIFFICILE' };
+  const diffLabel = { easy: t('sv_diff_easy'), medium: t('sv_diff_medium'), hard: t('sv_diff_hard') };
   const diffColor = { easy: 'var(--blue-neon)', medium: 'var(--gold)', hard: 'var(--red)' };
   const el = id => document.getElementById(id);
   if (!el('svFormula')) return;
@@ -333,12 +336,19 @@ function _renderGameOver(isNew, xpGain) {
   el('svGoCorrect').textContent = _correct;
   el('svGoBest').textContent    = _bestScore.toLocaleString();
   el('svGoXP').textContent      = `+${xpGain} XP`;
+  el('svGoScore').textContent   = _score.toLocaleString();
+  el('svGoCorrect').textContent = _correct;
+  el('svGoBest').textContent    = _bestScore.toLocaleString();
+  el('svGoXP').textContent      = `+${xpGain} XP`;
   el('svGoNew').style.display   = isNew ? 'block' : 'none';
 }
 
 /* ══ PARTAGE ══ */
 export function svShare() {
-  const text = `🎯 LogicShot — Mode Survie Infinie\n🏆 Score : ${_score.toLocaleString()}\n✅ Réponses : ${_correct}\n🔥 Best : ${_bestScore.toLocaleString()}\nEssaie de me battre 👇\nhttps://manueldrabor.github.io/logicshotbeta/`;
+  const isFr = getLang() === 'fr';
+  const text = isFr
+    ? `🎯 LogicShot — Mode Survie Infinie\n🏆 Score : ${_score.toLocaleString()}\n✅ Réponses : ${_correct}\n🔥 Best : ${_bestScore.toLocaleString()}\nEssaie de me battre 👇\nhttps://manueldrabor.github.io/logicshotbeta/`
+    : `🎯 LogicShot — Endless Survival\n🏆 Score: ${_score.toLocaleString()}\n✅ Correct: ${_correct}\n🔥 Best: ${_bestScore.toLocaleString()}\nCan you beat me? 👇\nhttps://manueldrabor.github.io/logicshotbeta/`;
   if (navigator.share) {
     navigator.share({ title: 'LogicShot Survie', text }).catch(() => {});
   } else {

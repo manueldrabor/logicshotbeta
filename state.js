@@ -67,13 +67,14 @@ export const State = {
   },
   get xpLevel() {
     const xp = this.xp;
-    if (xp < 500)  return { level: 1, title: 'Recrue',        next: 500 };
-    if (xp < 1200) return { level: 2, title: 'Apprenti',      next: 1200 };
-    if (xp < 2500) return { level: 3, title: 'Combattant',    next: 2500 };
-    if (xp < 4500) return { level: 4, title: 'Vétéran',       next: 4500 };
-    if (xp < 7000) return { level: 5, title: 'Élite',         next: 7000 };
-    if (xp < 10000)return { level: 6, title: 'Champion',      next: 10000 };
-    return         { level: 7, title: 'Maître du Calcul',      next: Infinity };
+    const _t = window.t || ((k) => k);
+    if (xp < 500)  return { level: 1, title: _t('xp_1'),  next: 500 };
+    if (xp < 1200) return { level: 2, title: _t('xp_2'),  next: 1200 };
+    if (xp < 2500) return { level: 3, title: _t('xp_3'),  next: 2500 };
+    if (xp < 4500) return { level: 4, title: _t('xp_4'),  next: 4500 };
+    if (xp < 7000) return { level: 5, title: _t('xp_5'),  next: 7000 };
+    if (xp < 10000)return { level: 6, title: _t('xp_6'),  next: 10000 };
+    return         { level: 7, title: _t('xp_7'),          next: Infinity };
   },
 
   /* ── Réinitialisation d'une partie ── */

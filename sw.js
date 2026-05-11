@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════
    sw.js — Service Worker LogicShot PWA
 ══════════════════════════════════════ */
-const CACHE_NAME = 'logicshot-v5';
+const CACHE_NAME = 'logicshot-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const ASSETS = [
   './battle.js',
   './online.js',
   './survival.js',
+  './i18n.js',
   './manifest.json',
   './Smooth_In_Heights_2026v2.mp3',
   'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@700;800&family=Share+Tech+Mono&display=block'

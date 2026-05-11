@@ -754,7 +754,7 @@ body::before{
   .story-title { font-size: 26px; }
   .story-progress { font-size: 14px; display: none;}
   .story-grid {
-    max-width: 600px;
+    max-width: 648px;
     grid-template-columns: repeat(5, 1fr);
     gap: 10px;
     padding: 5px 24px;

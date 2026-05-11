@@ -3,6 +3,7 @@
    Sons distincts par action + musique menu
 ══════════════════════════════════════ */
 import { State } from './state.js';
+import { t } from './i18n.js';
 
 /* ── AudioContext — créé uniquement dans le handler du geste utilisateur ── */
 let _audioCtx = null;
@@ -232,9 +233,9 @@ export function playMenuMusic() {
   if (!mus) return;
   clearTimeout(_menuMusicTimer);
   clearInterval(_menuMusicFadeInterval);
-  if (!mus.paused && _menuMusicStarted) { mus.volume = 0.1; return; }
+  if (!mus.paused && _menuMusicStarted) { mus.volume = 0.2; return; }
   _menuMusicStarted = true;
-  mus.volume = 0.1;
+  mus.volume = 0.2;
   mus.play().catch(() => {});
   mus.onended = () => {
     _menuMusicStarted = false;
@@ -261,9 +262,9 @@ export function resumeMenuMusic() {
   clearInterval(_menuMusicFadeInterval);
   clearTimeout(_menuMusicTimer);
   if (mus.paused) { mus.volume = 0; mus.play().catch(() => {}); }
-  const target = 0.1;
+  const target = 0.2;
   _menuMusicFadeInterval = setInterval(() => {
-    if (mus.volume < target - 0.02) { mus.volume = Math.min(target, mus.volume + 0.03); }
+    if (mus.volume < target - 0.04) { mus.volume = Math.min(target, mus.volume + 0.03); }
     else { mus.volume = target; clearInterval(_menuMusicFadeInterval); }
   }, 50);
 }
@@ -301,7 +302,7 @@ export function toggleMute() {
   State.isMuted = !State.isMuted;
   const btn = document.getElementById('muteBtn');
   if (btn) {
-    btn.textContent = State.isMuted ? '🔇 Son coupé' : '🔊 Son';
+    btn.textContent = State.isMuted ? t('sound_off') : t('sound_on');
     btn.classList.toggle('active', State.isMuted);
   }
   const inBattle = !document.getElementById('screenBattle')?.classList.contains('hidden') && !State.isPaused;

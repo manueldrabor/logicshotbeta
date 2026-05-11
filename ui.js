@@ -3,6 +3,7 @@
 ══════════════════════════════════════ */
 import { State, C, Save } from './state.js';
 import { sfx } from './audio.js';
+import { t, getLang } from './i18n.js';
 
 /* ══ NAVIGATION ══ */
 const ALL_SCREENS = [
@@ -43,8 +44,8 @@ export function toggleTheme() {
 }
 
 export function initTheme() {
-  const t = localStorage.getItem('ls_theme');
-  if (t === 'dark') {
+  const theme = localStorage.getItem('ls_theme');
+  if (theme === 'dark') {
     State.isDark = true;
     document.documentElement.setAttribute('data-theme', 'dark');
     const btn = document.getElementById('themeBtn');
@@ -63,7 +64,7 @@ export function renderXPBar() {
   const prevThreshold = getPrevThreshold(info.level);
   const pct = info.next === Infinity ? 100 : Math.min(100, ((xp - prevThreshold) / (info.next - prevThreshold)) * 100);
   bar.style.width = pct + '%';
-  if (lvlEl) lvlEl.textContent = `Nv.${info.level} · ${info.title}`;
+  if (lvlEl) lvlEl.textContent = `${getLang()==='en'?'Lv.':'Nv.'}${info.level} · ${info.title}`;
   if (xpEl)  xpEl.textContent = info.next === Infinity ? `${xp} XP · MAX` : `${xp}/${info.next} XP`;
 }
 
@@ -95,20 +96,21 @@ export function animateXPGain(amount) {
 }
 
 function getXPLevelFor(xp) {
-  if (xp < 500)   return { level: 1, title: 'Recrue' };
-  if (xp < 1200)  return { level: 2, title: 'Apprenti' };
-  if (xp < 2500)  return { level: 3, title: 'Combattant' };
-  if (xp < 4500)  return { level: 4, title: 'Vétéran' };
-  if (xp < 7000)  return { level: 5, title: 'Élite' };
-  if (xp < 10000) return { level: 6, title: 'Champion' };
-  return           { level: 7, title: 'Maître du Calcul' };
+  const _t = window.t || ((k) => k);
+  if (xp < 500)   return { level: 1, title: _t('xp_1') };
+  if (xp < 1200)  return { level: 2, title: _t('xp_2') };
+  if (xp < 2500)  return { level: 3, title: _t('xp_3') };
+  if (xp < 4500)  return { level: 4, title: _t('xp_4') };
+  if (xp < 7000)  return { level: 5, title: _t('xp_5') };
+  if (xp < 10000) return { level: 6, title: _t('xp_6') };
+  return           { level: 7, title: _t('xp_7') };
 }
 
 function showLevelUpFX(info) {
   const el = document.createElement('div');
   el.className = 'levelup-overlay';
   el.innerHTML = `
-    <div class="levelup-title">🎖️ NIVEAU ${info.level} !</div>
+    <div class="levelup-title">🎖️ ${getLang()==="fr"?"NIVEAU":"LEVEL"} ${info.level} !</div>
     <div class="levelup-sub">${info.title || ''}</div>`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3000);
@@ -395,21 +397,21 @@ export function closeModal(e) {
 }
 
 export function showShop() {
-  document.getElementById('modalTitle').textContent = '🛒 Boutique';
+  document.getElementById('modalTitle').textContent = `🛒 ${t('settings_shop')}`;
   document.getElementById('modalContent').innerHTML = `
-    <div style="font-size:10px;color:var(--muted);text-align:center;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Skins de personnage</div>
+    <div style="font-size:10px;color:var(--muted);text-align:center;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">${t('shop_skins_label')}</div>
     <div class="shop-grid">
       <div class="shop-item"><div class="shop-item-icon">🔫</div><div class="shop-item-name">Skin Désert Eagle</div><div class="shop-item-price">1,99 €</div></div>
       <div class="shop-item"><div class="shop-item-icon">💣</div><div class="shop-item-name">Skin Bazooka Or</div><div class="shop-item-price">2,99 €</div></div>
       <div class="shop-item"><div class="shop-item-icon">🤖</div><div class="shop-item-name">Skin Robot Ninja</div><div class="shop-item-price">1,99 €</div></div>
-      <div class="shop-item shop-item-featured"><div class="shop-item-icon">💀</div><div class="shop-item-name">Skin Fatality</div><div class="shop-item-badge">EXCLUSIF</div><div class="shop-item-price">0,99 €</div></div>
+      <div class="shop-item shop-item-featured"><div class="shop-item-icon">💀</div><div class="shop-item-name">Skin Fatality</div><div class="shop-item-badge">${t('shop_exclusive')}</div><div class="shop-item-price">0,99 €</div></div>
     </div>
-    <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:10px;">Bientôt disponibles</p>`;
+    <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:10px;">${t('shop_coming_soon')}</p>`;
   openModal();
 }
 
 export async function showLeaderboard(tab = 'elo') {
-  document.getElementById('modalTitle').textContent = '🏆 Classement';
+  document.getElementById('modalTitle').textContent = `🏆 ${t('settings_leaderboard')}`;
   document.getElementById('modalContent').innerHTML = `
     <!-- Onglets -->
     <div style="display:flex;gap:8px;margin-bottom:14px;">
@@ -428,12 +430,12 @@ export async function showLeaderboard(tab = 'elo') {
         background:${tab==='survival'?'var(--red)':'var(--surface)'};
         color:${tab==='survival'?'#fff':'var(--muted)'};
         border-color:${tab==='survival'?'var(--red)':'var(--border)'};
-      ">⏳ SURVIE</button>
+      ">${t('lb_survival_tab')}</button>
     </div>
     <div id="lbContent" style="min-height:120px;">
       <div style="text-align:center;padding:20px;color:var(--muted);">
         <div style="font-size:24px;animation:robotBreathe 1.5s infinite">⏳</div>
-        <div style="font-size:12px;margin-top:8px;">Chargement…</div>
+        <div style="font-size:12px;margin-top:8px;">${t('lb_loading')}</div>
       </div>
     </div>`;
   openModal();
@@ -462,20 +464,20 @@ export async function showLeaderboard(tab = 'elo') {
       const { fetchLeaderboard, fetchSurvivalLeaderboard, isOnlineLeaderboard } = await import('./leaderboard.js');
       const medals = ['🥇','🥈','🥉'];
       const onlineBadge = isOnlineLeaderboard()
-        ? `<div style="text-align:center;font-size:10px;color:var(--green);margin-bottom:10px;font-weight:700;">🌐 Classement en ligne</div>`
-        : `<div style="text-align:center;font-size:10px;color:var(--muted);margin-bottom:10px;font-weight:700;">📱 Classement local</div>`;
+        ? `<div style="text-align:center;font-size:10px;color:var(--green);margin-bottom:10px;font-weight:700;">${t('lb_online')}</div>`
+        : `<div style="text-align:center;font-size:10px;color:var(--muted);margin-bottom:10px;font-weight:700;">${t('lb_local')}</div>`;
 
       if (t === 'elo') {
         const entries = await fetchLeaderboard();
         const rows = entries.length === 0
-          ? `<p style="text-align:center;color:var(--muted);padding:20px;">Aucune partie encore.</p>`
+          ? `<p style="text-align:center;color:var(--muted);padding:20px;">${t('lb_no_games')}</p>`
           : entries.map((e, i) =>
               `<div class="lb-row">
                 <div class="lb-rank">${medals[i] || `#${i + 1}`}</div>
                 <div class="lb-name">${e.name}</div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
                   <div class="elo-badge">ELO ${e.elo}</div>
-                  ${e.wins > 0 ? `<div style="font-size:9px;color:var(--gold);font-weight:600;">${e.wins} victoires</div>` : ''}
+                  ${e.wins > 0 ? `<div style="font-size:9px;color:var(--gold);font-weight:600;">${e.wins} ${t('lb_wins')}</div>` : ''}
                 </div>
               </div>`
             ).join('');
@@ -488,7 +490,7 @@ export async function showLeaderboard(tab = 'elo') {
         const myRank  = entries.findIndex(e => e.name === myName) + 1;
 
         const rows = entries.length === 0
-          ? `<p style="text-align:center;color:var(--muted);padding:20px;">Aucun score encore — lance une partie !</p>`
+          ? `<p style="text-align:center;color:var(--muted);padding:20px;">${t('lb_no_scores')}</p>`
           : entries.map((e, i) => {
               const isMe = myName && e.name === myName;
               return `<div class="lb-row" style="${isMe ? 'border:1.5px solid var(--red);border-radius:12px;' : ''}">
@@ -496,14 +498,14 @@ export async function showLeaderboard(tab = 'elo') {
                 <div class="lb-name">${e.name}${isMe ? ' <span style="font-size:9px;color:var(--red);">● Toi</span>' : ''}</div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
                   <div style="font-family:'Share Tech Mono',monospace;font-size:14px;font-weight:700;color:var(--gold-neon);">${(e.survival_best||0).toLocaleString()}</div>
-                  <div style="font-size:9px;color:var(--muted);">pts</div>
+                  <div style="font-size:9px;color:var(--muted);">${t('lb_pts')}</div>
                 </div>
               </div>`;
             }).join('');
 
         const myBadge = myBest > 0 && myRank === 0
           ? `<div style="margin-bottom:10px;padding:10px 14px;background:rgba(229,48,48,0.08);border:1px solid rgba(229,48,48,0.25);border-radius:12px;display:flex;justify-content:space-between;align-items:center;">
-               <span style="font-size:12px;color:var(--muted);">Ton best (hors top 10)</span>
+               <span style="font-size:12px;color:var(--muted);">${t('lb_my_best')}</span>
                <span style="font-family:'Share Tech Mono',monospace;font-weight:700;color:var(--red);">${myBest.toLocaleString()} pts</span>
              </div>`
           : '';
@@ -512,7 +514,7 @@ export async function showLeaderboard(tab = 'elo') {
       }
     } catch(e) {
       const content2 = document.getElementById('lbContent');
-      if (content2) content2.innerHTML = `<p style="text-align:center;color:var(--muted);padding:20px;">Impossible de charger le classement.</p>`;
+      if (content2) content2.innerHTML = `<p style="text-align:center;color:var(--muted);padding:20px;">${t('lb_cant_load')}</p>`;
     }
   };
 
@@ -521,20 +523,31 @@ export async function showLeaderboard(tab = 'elo') {
 }
 
 export function showDonation() {
-  document.getElementById('modalTitle').textContent = '❤️ Soutenir';
+  document.getElementById('modalTitle').textContent = `❤️ ${t('settings_support')}`;
+  const isEn = window.LS_LANG === 'en';
   document.getElementById('modalContent').innerHTML = `
-    <p style="text-align:center;color:var(--muted);margin-bottom:14px;">Ce jeu aide à la mémoire. Merci 🙏</p>
-    <div class="donation-grid">
-      <button class="don-btn" aria-label="Soutenir avec 1 euro">☕ 1€</button>
-      <button class="don-btn" aria-label="Soutenir avec 2 euros">🍕 2€</button>
-      <button class="don-btn" aria-label="Soutenir avec 5 euros">🎮 5€</button>
-    </div>
-    <div class="funtoken">
-      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--blue-neon);">🪙 LOGICTOKEN</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Monnaie virtuelle — bientôt disponible</div>
-    </div>`;
+    <p style="text-align:center;color:var(--muted);margin-bottom:20px;line-height:1.6;">
+      ${isEn
+        ? 'This game helps train mental math.<br>Support its development 🙏'
+        : 'Ce jeu aide à entraîner le calcul mental.<br>Soutiens son développement 🙏'}
+    </p>
+    <a href="https://paypal.me/ManuelDrabor" target="_blank" rel="noopener" style="
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      width:100%;padding:15px;border-radius:14px;
+      background:linear-gradient(135deg,#0070ba,#003087);
+      color:#fff;font-family:'Syne',sans-serif;font-weight:800;font-size:15px;
+      letter-spacing:0.5px;text-decoration:none;
+      box-shadow:0 4px 16px rgba(0,112,186,0.35);
+      -webkit-tap-highlight-color:transparent;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 0 0-.607-.541c-.013.076-.026.175-.041.254-.93 4.778-4.005 7.201-9.138 7.201h-2.19a.563.563 0 0 0-.556.479l-1.187 7.527h-.506l-.24 1.516a.56.56 0 0 0 .554.647h3.882c.46 0 .85-.334.922-.788.06-.26.76-4.852.816-5.09a.932.932 0 0 1 .923-.788h.58c3.76 0 6.705-1.528 7.565-5.946.36-1.847.174-3.388-.777-4.471z"/></svg>
+      PayPal — paypal.me/ManuelDrabor
+    </a>
+    <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:12px;">
+      ${isEn ? 'Every contribution counts. Thank you! ❤️' : 'Chaque contribution compte. Merci ! ❤️'}
+    </p>`;
   openModal();
 }
+
 
 export function showComingSoon(f) {
   document.getElementById('modalTitle').textContent = '🚀 Coming Soon';
@@ -557,7 +570,7 @@ export function shareResult(playerName, score, stars, isWin, storyLevel) {
     const modeStr = storyLevel ? `Niveau ${storyLevel}` : 'vs NEXUS';
     /* shareText : sans URL — navigator.share ajoute url séparément (évite le doublon)
        clipboardText : avec URL — pour le fallback copier-coller */
-    const shareText    = `${emoji} LogicShot · ${modeStr}\n${playerName} · ${score > 0 ? score.toLocaleString() + ' pts' : ''} ${starStr}\nPeux-tu me battre ? 🧠⚡`;
+    const shareText    = `${emoji} LogicShot · ${modeStr}\n${playerName} · ${score > 0 ? score.toLocaleString() + ' pts' : ''} ${starStr}\n${t('share_cta')}`;
     const clipboardText = shareText + '\n' + gameUrl;
 
     if (dataUrl && navigator.share && navigator.canShare) {
@@ -616,7 +629,7 @@ function _buildShareImage(playerName, score, stars, isWin, storyLevel) {
       ctx.fillText(playerName.slice(0, 18), 28, 80);
 
       /* ── Mode ── */
-      const modeStr = storyLevel ? `Niveau ${storyLevel} — Mode Histoire` : 'Vs NEXUS';
+      const modeStr = storyLevel ? t('share_mode_story', {n: storyLevel}) : t('share_mode_vm');
       ctx.font = '15px "Space Grotesk", sans-serif';
       ctx.fillStyle = isDark ? 'rgba(255,255,255,.5)' : 'rgba(0,0,30,.5)';
       ctx.fillText(modeStr, 28, 108);
@@ -643,7 +656,7 @@ function _buildShareImage(playerName, score, stars, isWin, storyLevel) {
       }
 
       /* ── Résultat badge ── */
-      const badgeText = isWin ? 'VICTOIRE' : 'DÉFAITE';
+      const badgeText = isWin ? t('win').replace('!','') : t('lose').replace('!','');
       ctx.font = 'bold 13px "Syne", sans-serif';
       const bw = ctx.measureText(badgeText).width + 24;
       ctx.fillStyle = isWin ? 'rgba(255,215,0,.15)' : 'rgba(255,85,85,.15)';
@@ -654,7 +667,7 @@ function _buildShareImage(playerName, score, stars, isWin, storyLevel) {
       /* ── Call to action ── */
       ctx.font = '13px "Space Grotesk", sans-serif';
       ctx.fillStyle = isDark ? 'rgba(255,255,255,.3)' : 'rgba(0,0,0,.35)';
-      ctx.fillText('Peux-tu me battre ? 🧠⚡', 28, 310);
+      ctx.fillText(t('share_cta'), 28, 310);
       ctx.fillStyle = '#00b4ff';
       ctx.fillText(gameUrl.replace('https://', ''), 28, 328);
 
@@ -677,7 +690,7 @@ function _fallbackShare(text, dataUrl, gameUrl) {
     );
     return;
   }
-  if (modalTitle) modalTitle.textContent = '📤 Partager mon score';
+  if (modalTitle) modalTitle.textContent = t('share_title');
   modalContent.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
       ${dataUrl ? `<img src="${dataUrl}" style="width:100%;max-width:440px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.3);" alt="Score card">` : ''}
@@ -685,12 +698,12 @@ function _fallbackShare(text, dataUrl, gameUrl) {
         <button onclick="navigator.clipboard?.writeText(${JSON.stringify(text)}).then(()=>window._shareToast())"
           style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border);
             background:var(--card);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer;">
-          📋 Copier le texte
+          ${t('share_copy')}
         </button>
         ${dataUrl ? `<button onclick="window._downloadShareImg()"
           style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--cyan);
             background:transparent;color:var(--cyan);font-weight:700;font-size:13px;cursor:pointer;">
-          💾 Sauvegarder l'image
+          ${t('share_save')}
         </button>` : ''}
       </div>
     </div>`;
@@ -708,11 +721,11 @@ function _fallbackShare(text, dataUrl, gameUrl) {
 
 /* ── Toast notification ── */
 function _showToast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast-notif';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3000);
+  const el = document.createElement('div');
+  el.className = 'toast-notif';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
 }
 
 /* ── roundRect polyfill pour anciens navigateurs ── */
@@ -745,16 +758,17 @@ export function renderStoryMap() {
   const nextLvlXP = info.next === Infinity ? null : info.next - xp;
   const xpBlock = document.getElementById('storyXpBlock');
   if (xpBlock) {
+    const _isEn = (window.t && window.t('diff_badge_easy').startsWith('E'));
     xpBlock.innerHTML = `
       <div class="story-xp-row">
-        <span class="story-xp-label">🎖️ Nv.${info.level} · ${info.title}</span>
-        <span class="story-xp-val">${info.next === Infinity ? `${xp} XP · MAX` : `${xp} / ${info.next} XP`}</span>
+        <span class="story-xp-label">🎖️ ${_isEn?'Lv.':'Nv.'}${info.level} · ${info.title}</span>
+        <span class="story-xp-val">${info.next === Infinity ? `${xp} XP · ${_isEn?'MAX':'MAX'}` : `${xp} / ${info.next} XP`}</span>
       </div>
       <div class="story-xp-bg"><div class="story-xp-fill" style="width:${pct}%"></div></div>
       <div class="story-xp-stats">
-        <span>✅ ${beaten.length}/20 niveaux</span>
-        <span>⭐ ${totalStars} étoiles</span>
-        <span>${nextLvlXP ? `⚡ ${nextLvlXP} XP → Nv.${info.level + 1}` : '🏆 Niveau max !'}</span>
+        <span>✅ ${beaten.length}/20 ${_isEn?'levels':'niveaux'}</span>
+        <span>⭐ ${totalStars} ${_isEn?'stars':'étoiles'}</span>
+        <span>${nextLvlXP ? `⚡ ${nextLvlXP} XP → ${_isEn?'Lv.':'Nv.'}${info.level + 1}` : (_isEn?'🏆 Max level!':'🏆 Niveau max !')}</span>
       </div>`;
   }
 
@@ -767,7 +781,7 @@ export function renderStoryMap() {
     const cls = `story-level ${zone} ${isBeat ? 'beaten' : isUnlocked ? 'unlocked' : 'locked'} ${i === unlocked && !isBeat ? 'current' : ''}`;
     const btn = document.createElement('button');
     btn.className = cls;
-    btn.setAttribute('aria-label', `Niveau ${i}${isBeat ? ', complété' : isUnlocked ? ', disponible' : ', verrouillé'}`);
+    btn.setAttribute('aria-label', `${getLang()==='fr'?'Niveau':'Level'} ${i}${isBeat ? (getLang()==='fr'?', complété':', completed') : isUnlocked ? (getLang()==='fr'?', disponible':', available') : (getLang()==='fr'?', verrouillé':', locked')}`);
     btn.setAttribute('aria-disabled', isUnlocked ? 'false' : 'true');
     const s = stars[i] || 0;
     const starsHtml = isBeat ? `<div class="story-stars" aria-hidden="true">${'⭐'.repeat(s)}${'☆'.repeat(3 - s)}</div>` : '';
@@ -775,7 +789,7 @@ export function renderStoryMap() {
     if (isUnlocked) btn.onclick = () => window._startStoryLevel(i);
     grid.appendChild(btn);
   }
-  document.getElementById('storyProgress').textContent = `${beaten.length}/20 complétés`;
+  document.getElementById('storyProgress').textContent = t('story_completed', {n: beaten.length});
 }
 
 /* ══ CANVAS PARTICULES ══ */

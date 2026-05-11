@@ -77,14 +77,32 @@ export async function reserveName(wantedName) {
       `leaderboard?name=eq.${encodeURIComponent(wantedName)}&select=id,device_id`
     );
     if (existing.length > 0 && existing[0].device_id !== deviceId) {
-      /* Nom pris par un autre joueur → bloquer */
-      throw new Error('NAME_TAKEN');
+      /* Nom pris → suffixe automatique silencieux (#2, #3…) */
+      let suffix = 2;
+      while (suffix <= 99) {
+        const candidate = `${wantedName}#${suffix}`;
+        const check = await supaFetch(
+          `leaderboard?name=eq.${encodeURIComponent(candidate)}&select=id`
+        );
+        if (check.length === 0) { finalName = candidate; break; }
+        suffix++;
+      }
     }
+    /* Créer la ligne en BDD immédiatement */
+    await supaFetch('leaderboard', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify({
+        device_id: deviceId,
+        name: finalName,
+        elo: 1000,
+        wins: 0
+      })
+    });
 
     Save.savePlayerName(finalName);
     return finalName;
   } catch(e) {
-    if (e.message === 'NAME_TAKEN') throw e; // ne pas avaler cette erreur
     console.warn('reserveName offline — fallback local', e);
     Save.savePlayerName(wantedName);
     return wantedName;
@@ -121,23 +139,20 @@ export async function updateElo(name, eloDelta, won) {
          → dans ce cas, on PATCH par nom plutôt que d'insérer. */
       let finalName = name;
 
-      /* Chercher row par nom pour récupérer un éventuel id existant */
+      /* Vérifier si le nom est pris par un autre device → suffixe auto */
       const existingName = await supaFetch(
         `leaderboard?name=eq.${encodeURIComponent(name)}&select=id,device_id,elo,wins`
       );
-
       if (existingName.length > 0) {
-        const existing = existingName[0];
-        if (!existing.device_id || existing.device_id === deviceId) {
-          /* Row orpheline (device_id NULL) ou déjà la nôtre → réclamer + mettre à jour */
-          await supaFetch(`leaderboard?id=eq.${existing.id}`, {
-            method: 'PATCH',
-            headers: { Prefer: '' },
+        const ex = existingName[0];
+        if (!ex.device_id || ex.device_id === deviceId) {
+          /* Row orpheline → réclamer */
+          await supaFetch(`leaderboard?id=eq.${ex.id}`, {
+            method: 'PATCH', headers: { Prefer: '' },
             body: JSON.stringify({
-              device_id: deviceId,
-              name: finalName,
-              elo:  Math.max(800, (existing.elo || 1000) + eloDelta),
-              wins: (existing.wins || 0) + (won ? 1 : 0),
+              device_id: deviceId, name,
+              elo:  Math.max(800, (ex.elo || 1000) + eloDelta),
+              wins: (ex.wins || 0) + (won ? 1 : 0),
               xp:   parseInt(localStorage.getItem('ls_xp') || '0'),
               beaten: localStorage.getItem('ls_beaten') || '[]',
               stars:  localStorage.getItem('ls_stars')  || '{}',
@@ -146,18 +161,15 @@ export async function updateElo(name, eloDelta, won) {
           });
           return;
         } else {
-          /* Nom pris par un autre device → suffixe automatique */
+          /* Nom pris par un autre device → suffixe silencieux */
           let suffix = 2;
           while (suffix <= 99) {
             const candidate = `${name}#${suffix}`;
-            const check = await supaFetch(
-              `leaderboard?name=eq.${encodeURIComponent(candidate)}&select=id`
-            );
+            const check = await supaFetch(`leaderboard?name=eq.${encodeURIComponent(candidate)}&select=id`);
             if (check.length === 0) { finalName = candidate; break; }
             suffix++;
           }
-          Save.savePlayerName(finalName);
-          console.warn(`Nom "${name}" pris hors ligne → renommé "${finalName}" automatiquement`);
+          if (finalName !== name) Save.savePlayerName(finalName);
         }
       }
 
@@ -305,33 +317,51 @@ function _genRecoveryCode() {
 
 /* Génère (ou récupère) le code de récupération pour ce device */
 export async function getOrCreateRecoveryCode() {
-  if (!isConfigured) return null;
+  /* ── Priorité : localStorage (fonctionne toujours, même offline) ── */
+  let localCode = localStorage.getItem('ls_recovery_code');
+  if (!localCode) {
+    localCode = _genRecoveryCode();
+    localStorage.setItem('ls_recovery_code', localCode);
+  }
+
+  /* ── Sync Supabase en arrière-plan (best-effort) ── */
+  if (isConfigured) {
+    _syncRecoveryCodeToCloud(localCode).catch(() => {});
+  }
+
+  return localCode;
+}
+
+async function _syncRecoveryCodeToCloud(code) {
   const deviceId = Save.getDeviceId();
   try {
-    const rows = await supaFetch(
+    /* Chercher la ligne existante */
+    let rows = await supaFetch(
       `leaderboard?device_id=eq.${encodeURIComponent(deviceId)}&select=id,recovery_code`
     );
-    if (!rows || rows.length === 0) return null;
+
+    if (!rows || rows.length === 0) {
+      /* Créer la ligne si elle n'existe pas */
+      const name = Save.getSavedName() || 'Joueur';
+      rows = await supaFetch('leaderboard', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+        body: JSON.stringify({ device_id: deviceId, name, elo: 1000, wins: 0 })
+      });
+    }
+
+    if (!rows || rows.length === 0) return;
     const row = rows[0];
-    if (row.recovery_code) return row.recovery_code;
-    /* Générer un code unique */
-    let code, attempts = 0;
-    do {
-      code = _genRecoveryCode();
-      attempts++;
-      const check = await supaFetch(
-        `leaderboard?recovery_code=eq.${encodeURIComponent(code)}&select=id`
-      );
-      if (check.length === 0) break;
-    } while (attempts < 10);
-    /* Sauvegarder le code */
-    await supaFetch(`leaderboard?id=eq.${row.id}`, {
-      method: 'PATCH',
-      headers: { Prefer: '' },
-      body: JSON.stringify({ recovery_code: code })
-    });
-    return code;
-  } catch(e) { return null; }
+
+    /* Mettre à jour le code si différent */
+    if (row.recovery_code !== code) {
+      await supaFetch(`leaderboard?id=eq.${row.id}`, {
+        method: 'PATCH',
+        headers: { Prefer: '' },
+        body: JSON.stringify({ recovery_code: code })
+      });
+    }
+  } catch(e) { /* fail silently — localStorage est la source de vérité */ }
 }
 
 /* Restaure la progression depuis un code de récupération saisi par l'utilisateur */
@@ -362,6 +392,8 @@ export async function restoreFromRecoveryCode(code) {
     const elo = Save.getElo();
     elo[row.name] = row.elo || 1000;
     Save.saveElo(elo);
+    /* Sauvegarder le code dans localStorage du nouvel appareil */
+    if (clean) localStorage.setItem('ls_recovery_code', clean);
     return row.name;
   } catch(e) { throw e; }
 }

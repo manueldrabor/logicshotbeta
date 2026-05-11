@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="light">
+<html lang="fr" data-theme="light" id="htmlRoot">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
@@ -55,17 +55,37 @@
     cookie_flags: 'SameSite=None;Secure'
   });
 </script>
+
+<style>
+@keyframes tutoGlow {
+  from { opacity: 0.7; transform: scale(0.97); }
+  to   { opacity: 1;   transform: scale(1.03); }
+}
+@keyframes tutoBounce {
+  from { transform: translateY(0px); }
+  to   { transform: translateY(-6px); }
+}
+@keyframes tutoFade {
+  from { opacity: 0.4; }
+  to   { opacity: 1; }
+}
+@keyframes tutoHP {
+  0%   { width: 100%; }
+  50%  { width: 65%; }
+  100% { width: 100%; }
+}
+</style>
 </head>
 <body>
 
 <!-- ══ SKIP LINK ACCESSIBILITÉ ══ -->
-<a href="#mainContent" class="skip-link">Aller au contenu principal</a>
+<a href="#mainContent" class="skip-link" data-i18n="skip_link">Aller au contenu principal</a>
 
 <!-- ══ LOADING SCREEN ══ -->
 <div id="loadingScreen" role="status" aria-label="Chargement de LogicShot">
   <div class="loading-logo">Logic<span>Shot</span></div>
   <div class="loading-bar-bg"><div class="loading-bar-fill"></div></div>
-  <div class="loading-sub">Chargement…</div>
+  <div class="loading-sub" data-i18n="loading">Chargement…</div>
 </div>
 
 <!-- ══ XP GAIN POP ══ -->
@@ -78,63 +98,19 @@
 <!-- ══ SPLASH ══ -->
 <div id="screenSplash" class="screen" role="main" aria-label="Menu principal">
   <!-- Logo SVG -->
-  <div class="splash-logo-wrap" aria-label="LogicShot" style="position:relative;">
-    <!-- Float bar install PWA — flotte au-dessus du logo -->
-    <div id="pwaInstallBar" style="display:none;width:100%;margin-bottom:10px;">
-      <button id="pwaInstallBtn" onclick="triggerPwaInstall()"
-        style="width:100%;padding:11px 18px;
-               background:linear-gradient(135deg,#00b4ff 0%,#0088ee 100%);
-               color:#fff;border:none;border-radius:50px;
-               font-family:'Syne',sans-serif;font-size:13px;font-weight:800;
-               letter-spacing:0.5px;cursor:pointer;
-               box-shadow:0 0 18px rgba(0,180,255,0.55),0 2px 8px rgba(0,0,0,0.2);
-               display:flex;align-items:center;justify-content:center;gap:8px;">
-        <span style="font-size:17px;">📲</span> INSTALLER L'APP
-      </button>
-    </div>
-    <!-- Instruction iOS Safari -->
-    <div id="iosInstallHint" style="display:none;width:100%;margin-bottom:10px;
-         padding:9px 14px;
-         background:rgba(0,180,255,0.07);
-         border:1px solid rgba(0,180,255,0.3);
-         border-radius:50px;font-size:11px;
-         color:var(--muted);text-align:center;line-height:1.5;
-         box-shadow:0 0 14px rgba(0,180,255,0.15);">
-      📲 <strong style="color:var(--text)">Installer</strong> :
-      appuie sur <strong>⎙ Partager</strong> →
-      <strong>« Écran d'accueil »</strong>
-    </div>
-    <img src="favicon.svg" class="splash-logo-icon" alt="LogicShot logo">
-  <!-- Anneau bleu extérieur -->
-  <circle cx="32" cy="32" r="23" fill="none" stroke="#00B4FF" stroke-width="2.5"/>
-  <!-- Anneau or -->
-  <circle cx="32" cy="32" r="16" fill="none" stroke="#FFD700" stroke-width="2.25"/>
-  <!-- Anneau bleu intérieur -->
-  <circle cx="32" cy="32" r="9"  fill="none" stroke="#00B4FF" stroke-width="2.1"/>
-  <!-- Dot or central -->
-  <circle cx="32" cy="32" r="4"  fill="#FFD700"/>
-  <!-- Centre blanc -->
-  <circle cx="32" cy="32" r="1.8" fill="#ffffff"/>
-  <!-- Croix bleue -->
-  <line x1="35.2" y1="32"   x2="52.5" y2="32"   stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="11.5" y1="32"   x2="28.8" y2="32"   stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="32"   y1="11.5" x2="32"   y2="28.8" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="32"   y1="35.2" x2="32"   y2="52.5" stroke="#00B4FF" stroke-width="2.5" stroke-linecap="round"/>
-  <!-- Ticks diagonaux or -->
-  <line x1="37.1" y1="26.9" x2="40.3" y2="23.7" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="37.1" y1="37.1" x2="40.3" y2="40.3" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="26.9" y1="37.1" x2="23.7" y2="40.3" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="26.9" y1="26.9" x2="23.7" y2="23.7" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/>
-    </svg>
+  <div class="splash-logo-wrap" aria-label="LogicShot" style="position:relative;overflow:visible;">
+
+    <img src="favicon.svg" class="splash-logo-icon" alt="LogicShot logo" style="width:70px;height:70px;border-radius:10px;display:block;">
+
     <div class="splash-wordmark">
       <span class="logo-gold">Logic</span><span class="logo-shot">Shot</span>
     </div>
   </div>
-  <div class="splash-sub" aria-hidden="true">Calcule · Tire · Survie</div>
+  <div class="splash-sub" aria-hidden="true" data-i18n="tagline">Calcule · Tire · Survie</div>
 
   <!-- Badge joueur (affiché si pseudo enregistré) -->
   <div id="splashPlayerBadge" style="display:none;text-align:center;">
-    <button class="splash-player-badge" onclick="window.showNameSetup(true)" aria-label="Changer de pseudo">
+    <button class="splash-player-badge" onclick="window.showNameSetup(true)">
       <span>👤</span>
       <span id="splashPlayerName">Joueur</span>
       <span class="badge-pencil">✏️</span>
@@ -154,29 +130,29 @@
     <button class="mode-btn mode-featured" style="--mode-color:var(--blue-neon)" onclick="startStoryMode()" aria-label="Mode Histoire, 20 niveaux">
       <span class="mode-icon" aria-hidden="true">📖</span>
       <div class="mode-info">
-        <div class="mode-title">MODE HISTOIRE — 20 NIVEAUX</div>
-        <div class="mode-desc">Affronte NEXUS · Débloque des pouvoirs · Gagne des ⭐</div>
+        <div class="mode-title" data-i18n="mode_story_title">MODE HISTOIRE — 20 NIVEAUX</div>
+        <div class="mode-desc" data-i18n="mode_story_desc">Affronte NEXUS · Débloque des pouvoirs · Gagne des ⭐</div>
       </div>
     </button>
     <button class="mode-btn" style="--mode-color:var(--purple)" onclick="startVsMachine()" aria-label="Mode versus Machine">
       <span class="mode-icon" aria-hidden="true">🤖</span>
       <div class="mode-info">
-        <div class="mode-title">vs MACHINE</div>
-        <div class="mode-desc">Choisis la difficulté · Affronte NEXUS</div>
+        <div class="mode-title" data-i18n="mode_vm_title">vs MACHINE</div>
+        <div class="mode-desc" data-i18n="mode_vm_desc">Choisis la difficulté · Affronte NEXUS</div>
       </div>
     </button>
     <button class="mode-btn" style="--mode-color:var(--blue-neon)" onclick="startOnlineMode()" aria-label="Mode 1 contre 1 en ligne">
       <span class="mode-icon" aria-hidden="true">⚔️</span>
       <div class="mode-info">
-        <div class="mode-title">1 vs 1 EN LIGNE</div>
-        <div class="mode-desc">Duel en temps réel · Code de salle · ELO</div>
+        <div class="mode-title" data-i18n="mode_online_title">1 vs 1 EN LIGNE</div>
+        <div class="mode-desc" data-i18n="mode_online_desc">Duel en temps réel · Code de salle · ELO</div>
       </div>
     </button>
     <button class="mode-btn" style="--mode-color:var(--red)" onclick="startSurvivalMode()" aria-label="Mode Survie Infinie">
       <span class="mode-icon" aria-hidden="true">⏳</span>
       <div class="mode-info">
-        <div class="mode-title">SURVIE INFINIE</div>
-        <div class="mode-desc">Bonne réponse +10s · Erreur −7s · Jusqu'à la mort</div>
+        <div class="mode-title" data-i18n="mode_survival_title">SURVIE INFINIE</div>
+        <div class="mode-desc" data-i18n="mode_survival_desc">Bonne réponse +10s · Erreur −7s · Jusqu'à la mort</div>
       </div>
     </button>
     <button class="mode-btn" style="--mode-color:var(--gold-neon);display:none" onclick="showComingSoon('2v2')" aria-label="Mode 2 contre 2, bientôt disponible" aria-hidden="true">
@@ -198,10 +174,10 @@
 <!-- ══ MATCHMAKING ══ -->
 <div id="screenMatchmaking" class="screen hidden" role="main" aria-label="Saisie du pseudo">
   <div class="mm-box">
-    <div class="mm-title" id="mmTitle">ENTRER DANS L'ARÈNE</div>
+    <div class="mm-title" id="mmTitle" data-i18n="mm_title">ENTRER DANS L'ARÈNE</div>
     <div class="mm-inputs" id="mmInputs"></div>
-    <button class="res-btn gold" style="width:100%;margin-top:4px;" onclick="proceedMatchmaking()" aria-label="Continuer vers le combat">⚔️ CONTINUER</button>
-    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:10px;padding:12px;" aria-label="Retour au menu">← Retour au menu</button>
+    <button class="res-btn gold" style="width:100%;margin-top:4px;" onclick="proceedMatchmaking()" data-i18n="mm_cta">⚔️ CONTINUER</button>
+    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:10px;padding:12px;" aria-label="Retour au menu" data-i18n="back_menu">← Retour au menu</button>
   </div>
 </div>
 
@@ -209,10 +185,9 @@
 <div id="screenNameSetup" class="screen hidden" role="main" aria-label="Choix du pseudo">
   <div class="name-setup-box">
     <span class="name-setup-emoji">🎯</span>
-    <div class="name-setup-title" id="nameSetupTitle">TON NOM DE GUERRIER</div>
-    <div class="name-setup-sub" id="nameSetupSub">
-      Choisis un pseudo unique.<br>Il sera utilisé dans tous les modes et le classement.
-    </div>
+    <div class="name-setup-title" id="nameSetupTitle" data-i18n="name_title">TON NOM DE GUERRIER</div>
+    <div class="name-setup-sub" id="nameSetupSub" data-i18n="name_sub">Choisis un pseudo unique.
+Il sera utilisé dans tous les modes et le classement.</div>
     <div class="name-setup-warn" id="nameSetupWarn"></div>
     <input class="name-setup-input" id="nameSetupInput"
       placeholder="Ex: ShadowCalc"
@@ -220,50 +195,52 @@
       aria-label="Ton pseudo"
       oninput="document.getElementById('nameSetupWarn').textContent=''"
       onkeydown="if(event.key==='Enter')window.confirmNameSetup()">
-    <button class="res-btn gold" style="width:100%;margin-top:4px;" onclick="window.confirmNameSetup()" aria-label="Valider le pseudo">
+    <button class="res-btn gold" style="width:100%;margin-top:4px;" onclick="window.confirmNameSetup()" data-i18n="name_cta">
       🚀 C'EST PARTI !
     </button>
-    <button id="nameSetupSkipBtn" class="btn-back" style="display:none;width:100%;text-align:center;margin-top:10px;padding:12px;" onclick="window.cancelNameSetup()" aria-label="Annuler">← Annuler</button>
-    <button class="btn-back" style="width:100%;text-align:center;margin-top:8px;padding:10px;font-size:12px;opacity:0.7;" onclick="window.showRecoveryCode()" aria-label="Récupérer une progression existante">🔑 J'ai un code de récupération</button>
+    <button id="nameSetupSkipBtn" class="btn-back" style="display:none;width:100%;text-align:center;margin-top:10px;padding:12px;" onclick="window.cancelNameSetup()" aria-label="Annuler" data-i18n="name_cancel">← Annuler</button>
+    <button class="btn-back" style="width:100%;text-align:center;margin-top:8px;padding:10px;font-size:12px;opacity:0.7;" onclick="window.showRecoveryCode()" data-i18n="name_recovery">🔑 J'ai un code de récupération</button>
+    <button id="nameSetupDemoBtn" class="btn-back" style="width:100%;text-align:center;margin-top:6px;padding:10px;font-size:12px;opacity:0.55;" onclick="window.playAsGuest()">🎮 <span id="guestBtnLabel">Essayer sans compte (Niv.1)</span></button>
   </div>
 </div>
 
 <!-- ══ DIFF SELECT ══ -->
 <div id="screenDiffSelect" class="screen hidden" role="main" aria-label="Sélection de la difficulté">
   <div class="diff-select-box">
-    <div class="diff-select-title">CHOISIR L'IA</div>
-    <div class="diff-select-sub">Vitesse et précision de NEXUS</div>
+    <div class="diff-select-title" data-i18n="diff_title">CHOISIR L'IA</div>
+    <div class="diff-select-sub" data-i18n="diff_sub">Vitesse et précision de NEXUS</div>
     <div class="diff-opt" role="list">
       <button class="diff-opt-btn d-relax" onclick="selectAIDiff('relax')" aria-label="Difficulté Détente" role="listitem">
         <span class="diff-opt-icon" aria-hidden="true">😌</span>
-        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--blue-neon)">DÉTENTE</div><div class="diff-opt-desc">Pas de timer · IA très lente · Pour apprendre</div></div>
+        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--blue-neon)" data-i18n="diff_relax">DÉTENTE</div><div class="diff-opt-desc" data-i18n="diff_relax_desc">Pas de timer · IA très lente · Pour apprendre</div></div>
       </button>
       <button class="diff-opt-btn d-easy" onclick="selectAIDiff('easy')" aria-label="Difficulté Facile" role="listitem">
         <span class="diff-opt-icon" aria-hidden="true">🌱</span>
-        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--green)">FACILE</div><div class="diff-opt-desc">Timer souple · IA lente · Accessible</div></div>
+        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--green)" data-i18n="diff_easy">FACILE</div><div class="diff-opt-desc" data-i18n="diff_easy_desc">Timer souple · IA lente · Accessible</div></div>
       </button>
       <button class="diff-opt-btn d-medium" onclick="selectAIDiff('medium')" aria-label="Difficulté Moyen" role="listitem">
         <span class="diff-opt-icon" aria-hidden="true">⚡</span>
-        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--gold)">MOYEN</div><div class="diff-opt-desc">Timer normal · IA moyenne · Combat équilibré</div></div>
+        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--gold)" data-i18n="diff_medium">MOYEN</div><div class="diff-opt-desc" data-i18n="diff_medium_desc">Timer normal · IA moyenne · Combat équilibré</div></div>
       </button>
       <button class="diff-opt-btn d-hard" onclick="selectAIDiff('hard')" aria-label="Difficulté Difficile" role="listitem">
         <span class="diff-opt-icon" aria-hidden="true">💀</span>
-        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--red)">DIFFICILE</div><div class="diff-opt-desc">Timer serré · IA rapide · Maîtrise requise</div></div>
+        <div class="diff-opt-info"><div class="diff-opt-name" style="color:var(--red)" data-i18n="diff_hard">DIFFICILE</div><div class="diff-opt-desc" data-i18n="diff_hard_desc">Timer serré · IA rapide · Maîtrise requise</div></div>
       </button>
     </div>
-    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:16px;padding:12px;" aria-label="Retour au menu">← Retour au menu</button>
+    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:16px;padding:12px;" aria-label="Retour au menu" data-i18n="back_menu">← Retour au menu</button>
   </div>
 </div>
 
 <!-- ══ STORY MAP ══ -->
 <div id="screenStory" class="screen hidden" role="main" aria-label="Carte des niveaux">
-  <div class="story-header">
-    <div style="text-align:center;flex:1">
-      <div class="story-title">📖 MODE HISTOIRE</div>
+  <div class="story-header" style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;">
+    <div></div>
+    <div style="text-align:center;">
+      <div class="story-title" data-i18n="story_title" style="font-size:23px;">📖 MODE HISTOIRE</div>
       <div class="story-progress" id="storyProgress" aria-live="polite">0/20 complétés</div>
     </div>
-    <div style="text-align:right">
-      <button class="story-reset-btn" onclick="if(confirm('Effacer toute la progression ? Attention celà est définitif')){localStorage.removeItem('ls_beaten');localStorage.removeItem('ls_stars');openStoryMap();}" aria-label="Réinitialiser la progression">↺ Reset</button>
+    <div style="text-align:right;">
+      <button class="story-reset-btn" onclick="const msg=window.t?t('story_reset_confirm'):'Erase all progress?';if(confirm(msg)){localStorage.removeItem('ls_beaten');localStorage.removeItem('ls_stars');openStoryMap();}" aria-label="Reset">↺ Reset</button>
     </div>
   </div>
 
@@ -271,14 +248,14 @@
   <div id="storyXpBlock" class="story-xp-block" aria-label="Progression XP"></div>
 
   <div class="zone-legend" style="margin-top:8px;" aria-label="Légende des zones">
-    <div class="zone-tag" style="background:rgba(0,180,255,0.1);border:1px solid rgba(0,180,255,0.25);color:var(--blue-neon);">1–5 DÉTENTE</div>
-    <div class="zone-tag" style="background:rgba(0,168,85,0.1);border:1px solid rgba(0,168,85,0.25);color:var(--green);">6–10 FACILE</div>
-    <div class="zone-tag" style="background:rgba(245,196,0,0.1);border:1px solid rgba(245,196,0,0.25);color:var(--gold);">11–15 MOYEN</div>
-    <div class="zone-tag" style="background:rgba(229,48,48,0.1);border:1px solid rgba(229,48,48,0.25);color:var(--red);">16–20 DIFFICILE</div>
+    <div class="zone-tag" style="background:rgba(0,180,255,0.1);border:1px solid rgba(0,180,255,0.25);color:var(--blue-neon);" data-i18n="zone_relax">1–5 DÉTENTE</div>
+    <div class="zone-tag" style="background:rgba(0,168,85,0.1);border:1px solid rgba(0,168,85,0.25);color:var(--green);" data-i18n="zone_easy">6–10 FACILE</div>
+    <div class="zone-tag" style="background:rgba(245,196,0,0.1);border:1px solid rgba(245,196,0,0.25);color:var(--gold);" data-i18n="zone_medium">11–15 MOYEN</div>
+    <div class="zone-tag" style="background:rgba(229,48,48,0.1);border:1px solid rgba(229,48,48,0.25);color:var(--red);" data-i18n="zone_hard">16–20 DIFFICILE</div>
   </div>
   <div class="story-grid" id="storyGrid" role="list" aria-label="Niveaux de l'histoire"></div>
-  <div style="padding:16px 16px 0;width:100%;max-width:680px;margin:0 auto;">
-    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;padding:12px;margin: -15px 0px 0px 0px;" aria-label="Retour au menu">← Retour au menu</button>
+  <div style="padding:16px 16px 0;width:100%;max-width:632px;margin:0 auto;">
+    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;padding:12px;margin: -15px 0px 0px 0px;" data-i18n="back_menu">← Retour au menu</button>
   </div>
 </div>
 
@@ -289,22 +266,22 @@
       <div class="narrative-robot" id="narrativeRobot" aria-hidden="true">🤖</div>
       <div class="narrative-lvl" id="narrativeLvl"></div>
       <div class="narrative-bubble" role="article" aria-label="Message de NEXUS">
-        <div class="narrative-machine" aria-hidden="true">— NEXUS —</div>
+        <div class="narrative-machine" aria-hidden="true" data-i18n="narrative_nexus">— NEXUS —</div>
         <div class="narrative-text" id="narrativeText"></div>
       </div>
     </div>
-    <button class="narrative-continue" onclick="narrativeContinue()" aria-label="Continuer">CONTINUER ▶</button>
+    <button class="narrative-continue" onclick="narrativeContinue()" data-i18n="narrative_continue">CONTINUER ▶</button>
   </div>
 </div>
 
 <!-- ══ OATH ══ -->
 <div id="screenOath" class="screen hidden" role="main" aria-label="Serment du joueur">
   <div class="oath-box">
-    <div class="oath-title">⚖️ SERMENT</div>
-    <div class="oath-text">Avant chaque combat :<br><br>🚫 Pas de calculatrice<br>🚫 Pas de triche<br>🧠 Joue avec ta tête, pas tes doigts</div>
-    <label class="oath-check"><input type="checkbox" id="oathCb" aria-required="true"><span>J'en fais le serment !</span></label>
-    <button class="res-btn gold" style="width:100%" onclick="confirmOath()" aria-label="Confirmer le serment et aller au combat">⚔️ AU COMBAT !</button>
-    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:10px;padding:12px;" aria-label="Retour au menu">← Retour au menu</button>
+    <div class="oath-title" data-i18n="oath_title">⚖️ SERMENT</div>
+    <div class="oath-text" data-i18n-html="oath_text">Avant chaque combat :<br><br>🚫 Pas de calculatrice<br>🚫 Pas de triche<br>🧠 Joue avec ta tête, pas tes doigts</div>
+    <label class="oath-check"><input type="checkbox" id="oathCb" aria-required="true"><span data-i18n="oath_check">J'en fais le serment !</span></label>
+    <button class="res-btn gold" style="width:100%" onclick="confirmOath()" data-i18n="oath_cta">⚔️ AU COMBAT !</button>
+    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:10px;padding:12px;" aria-label="Retour au menu" data-i18n="back_menu">← Retour au menu</button>
   </div>
 </div>
 
@@ -324,9 +301,9 @@
     </div>
     <div class="feedback-bar" id="feedbackBar" aria-live="assertive" role="alert"></div>
     <div class="formula-zone" role="region" aria-label="Formule à résoudre">
-      <div class="formula-label" id="formulaLabel">RÉSOUS LA FORMULE</div>
+      <div class="formula-label" id="formulaLabel" data-i18n="formula_label">RÉSOUS LA FORMULE</div>
       <div class="formula-big" id="formulaDisplay" onclick="revealBlind()" role="img" aria-label="Formule mathématique">?</div>
-      <div class="blind-hint" id="blindHint" style="display:none" aria-label="Toucher pour révéler, coûte 3 secondes">👆 Touche pour révéler (−3s)</div>
+      <div class="blind-hint" id="blindHint" style="display:none" aria-label="Tap to reveal" data-i18n="blind_hint">👆 Touche pour révéler (−3s)</div>
       <div class="formula-answer" id="formulaAnswer" aria-live="polite"></div>
     </div>
     <div class="timer-zone" role="region" aria-label="Minuteur">
@@ -342,12 +319,10 @@
     <div id="numpadZone"></div>
     <div class="supers-zone" id="supersZone" role="toolbar" aria-label="Super pouvoirs"></div>
     <div class="battle-bottom">
-      <button class="pause-btn" onclick="togglePause()" aria-label="Mettre en pause (coûte 10 HP)">⏸ PAUSE (−10 HP)</button>
-      <button class="quit-btn" onclick="quitBattle()" aria-label="Abandonner le combat">🚪 ABANDONNER</button>
+      <button class="pause-btn" onclick="togglePause()" aria-label="Pause" data-i18n="pause_btn">⏸ PAUSE (−10 HP)</button>
+      <button class="quit-btn" onclick="quitBattle()" aria-label="Quit" data-i18n="quit_btn">🚪 ABANDONNER</button>
     </div>
-    <div class="bg-warning-bar" role="note">
-      Arrière-plan pendant un round = −20 HP
-    </div>
+    <div class="bg-warning-bar" role="note" data-i18n="bg_warning">Arrière-plan pendant un round = −20 HP</div>
   </div>
 </div>
 
@@ -356,8 +331,8 @@
   <div class="pause-box">
     <div class="pause-title" aria-hidden="true">⏸</div>
     <div class="pause-btns">
-      <button class="pause-resume" onclick="togglePause()" aria-label="Reprendre le jeu">▶ REPRENDRE</button>
-      <button class="pause-quit" onclick="quitBattle()" aria-label="Abandonner et quitter">Abandonner</button>
+      <button class="pause-resume" onclick="togglePause()" data-i18n="pause_resume">▶ REPRENDRE</button>
+      <button class="pause-quit" onclick="quitBattle()" data-i18n="pause_quit">Abandonner</button>
     </div>
   </div>
 </div>
@@ -379,14 +354,33 @@
 
 <!-- ══ TUTORIEL ══ -->
 <div id="screenTutorial" class="hidden" role="dialog" aria-modal="true" aria-label="Tutoriel LogicShot">
-  <div class="tuto-box">
-    <div class="tuto-header">TUTORIEL</div>
-    <div id="tutorialContent"></div>
-    <div class="tuto-btns">
-      <button class="tuto-btn-prev" id="tutoPrevBtn" onclick="tutoPrev()" aria-label="Étape précédente">← Précédent</button>
-      <button class="tuto-btn-next" id="tutoNextBtn" onclick="tutoNext()" aria-label="Étape suivante">Suivant →</button>
+  <div class="tuto-box" style="max-width:420px;margin:0 auto;">
+
+    <!-- Zone illustration animée -->
+    <div id="tutoIllustration" style="
+      height:150px;border-radius:18px;margin-bottom:18px;
+      display:flex;align-items:center;justify-content:center;
+      position:relative;overflow:hidden;flex-shrink:0;
+      background:linear-gradient(135deg,rgba(0,180,255,0.08),rgba(100,0,255,0.06));
+      border:1.5px solid rgba(0,180,255,0.15);">
     </div>
-    <button class="tuto-skip" onclick="closeTutorial()" aria-label="Passer le tutoriel">Passer le tutoriel</button>
+
+    <div class="tuto-header" data-i18n="tutorial_title" style="margin-bottom:14px;">TUTORIEL</div>
+    <div id="tutorialContent"></div>
+
+    <!-- Dots de progression -->
+    <div id="tutoDots" style="display:flex;justify-content:center;gap:7px;margin:14px 0 12px;"></div>
+
+    <div class="tuto-btns">
+      <button class="tuto-btn-prev" id="tutoPrevBtn" onclick="tutoPrev()" data-i18n="tuto_prev">← Précédent</button>
+      <button class="tuto-btn-next" id="tutoNextBtn" onclick="tutoNext()" data-i18n="tuto_next">Suivant →</button>
+    </div>
+    <button class="tuto-skip" onclick="closeTutorial()" data-i18n="tuto_skip"
+      style="margin-top:8px;width:100%;text-align:center;font-size:12px;
+        opacity:0.55;padding:8px;background:none;border:none;cursor:pointer;
+        color:var(--muted);-webkit-tap-highlight-color:transparent;">
+      Passer le tutoriel
+    </button>
   </div>
 </div>
 
@@ -402,8 +396,8 @@
 <!-- ══ ONLINE MENU ══ -->
 <div id="screenOnlineMenu" class="screen hidden" role="main" aria-label="Mode 1 vs 1 en ligne">
   <div class="online-box">
-    <div class="online-title">⚔️ 1 vs 1 EN LIGNE</div>
-    <div class="online-sub">Duel mathématique en temps réel</div>
+    <div class="online-title" data-i18n="online_title">⚔️ 1 vs 1 EN LIGNE</div>
+    <div class="online-sub" data-i18n="online_sub">Duel mathématique en temps réel</div>
 
     <!-- Affichage du pseudo enregistré -->
     <div id="onlineNameDisplay" style="
@@ -413,7 +407,7 @@
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:18px;">👤</span>
         <div>
-          <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-weight:600;">Joueur</div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-weight:600;" data-i18n="online_player_label">Joueur</div>
           <div id="onlineNameShown" style="font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:var(--gold);">—</div>
         </div>
       </div>
@@ -430,7 +424,7 @@
       🏠 Créer une salle
     </button>
 
-    <div class="online-or">— ou rejoindre une salle existante —</div>
+    <div class="online-or" data-i18n="online_or">— ou rejoindre une salle existante —</div>
 
     <input id="onlineCodeInput" class="mm-input" placeholder="ex: KZBT" maxlength="4" type="text"
       style="text-transform:uppercase;text-align:center;letter-spacing:10px;font-size:22px;font-family:'Share Tech Mono',monospace;"
@@ -440,7 +434,7 @@
       🚪 Rejoindre
     </button>
 
-    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:8px;padding:12px;" aria-label="Retour au menu">← Retour</button>
+    <button class="btn-back" onclick="goSplash()" style="width:100%;text-align:center;margin-top:8px;padding:12px;" aria-label="Retour au menu" data-i18n="online_back">← Retour</button>
   </div>
 </div>
 
@@ -451,9 +445,7 @@
 
     <div id="lobbyCode" style="margin:12px 0;text-align:center;"></div>
 
-    <div id="lobbyStatus" style="color:var(--muted);font-size:13px;text-align:center;min-height:44px;line-height:1.6;">
-      Connexion en cours…
-    </div>
+    <div id="lobbyStatus" style="color:var(--muted);font-size:13px;text-align:center;min-height:44px;line-height:1.6;" data-i18n="lobby_connecting">Connexion en cours…</div>
 
     <div class="lobby-spinner" aria-hidden="true">
       <div class="lobby-dot"></div><div class="lobby-dot"></div><div class="lobby-dot"></div>
@@ -467,7 +459,7 @@
       📤 Partager le code
     </button>
 
-    <button class="btn-back" onclick="cancelOnline()" style="width:100%;text-align:center;margin-top:8px;padding:12px;" aria-label="Annuler et retour">✕ Annuler</button>
+    <button class="btn-back" onclick="cancelOnline()" style="width:100%;text-align:center;margin-top:8px;padding:12px;" aria-label="Annuler et retour" data-i18n="lobby_cancel">✕ Annuler</button>
   </div>
 </div>
 
@@ -483,7 +475,7 @@
 
     <!-- Banque de temps -->
     <div class="sv-bank-wrap">
-      <div class="sv-timer-label">TEMPS RESTANT</div>
+      <div class="sv-timer-label" data-i18n="sv_timer_label">TEMPS RESTANT</div>
       <div id="svBank">30.0s</div>
       <div class="sv-bank-bar-bg">
         <div id="svBankBar"></div>
@@ -502,7 +494,7 @@
       <div class="answer-zone" id="svAnswerZone" style="width:100%;">
         <div class="player-answer-row">
           <input type="text" inputmode="none" readonly class="ans-input" id="svInput" placeholder="?" autocomplete="off" aria-label="Ta réponse">
-          <button class="fire-btn" onclick="window.svSubmit()" aria-label="Valider la réponse">🎯 RÉPONSE</button>
+          <button class="fire-btn" onclick="window.svSubmit()" data-i18n="sv_answer_btn">🎯 RÉPONSE</button>
         </div>
       </div>
 
@@ -524,42 +516,42 @@
         </div>
       </div>
 
-      <button class="sv-quit-btn" onclick="window.svQuit()">🚪 Quitter</button>
+      <button class="sv-quit-btn" onclick="window.svQuit()" data-i18n="sv_quit">🚪 Quitter</button>
     </div>
 
     <!-- Game Over -->
     <div id="svGameOverBox">
       <div class="sv-go-skull">💀</div>
-      <div class="sv-go-title">GAME OVER</div>
-      <div id="svGoNew">🏆 NOUVEAU RECORD !</div>
+      <div class="sv-go-title" data-i18n="sv_gameover">GAME OVER</div>
+      <div id="svGoNew" data-i18n="sv_new_record">🏆 NOUVEAU RECORD !</div>
 
       <div class="sv-go-stats">
         <div class="sv-go-row">
-          <span class="sv-go-label">Score final</span>
+          <span class="sv-go-label" data-i18n="sv_final_score">Score final</span>
           <span id="svGoScore" class="sv-go-val">0</span>
         </div>
         <div class="sv-go-divider"></div>
         <div class="sv-go-row">
-          <span class="sv-go-label">Bonnes réponses</span>
+          <span class="sv-go-label" data-i18n="sv_correct_answers">Bonnes réponses</span>
           <span id="svGoCorrect" class="sv-go-val">0</span>
         </div>
         <div class="sv-go-row">
-          <span class="sv-go-label">Meilleur score</span>
+          <span class="sv-go-label" data-i18n="sv_best">Meilleur score</span>
           <span id="svGoBest" class="sv-go-val">0</span>
         </div>
         <div class="sv-go-row">
-          <span class="sv-go-label">XP gagné</span>
+          <span class="sv-go-label" data-i18n="sv_xp_earned">XP gagné</span>
           <span id="svGoXP" class="sv-go-val">+0 XP</span>
         </div>
       </div>
 
       <div class="sv-go-btns-row">
-        <button id="svShareBtn" class="sv-go-btn share" onclick="window.svShare()">📤 Partager</button>
-        <button class="sv-go-btn rank" onclick="window.showLeaderboard('survival')">🏆 Classement</button>
+        <button id="svShareBtn" class="sv-go-btn share" onclick="window.svShare()" data-i18n="sv_share">📤 Partager</button>
+        <button class="sv-go-btn rank" onclick="window.showLeaderboard('survival')" data-i18n="sv_leaderboard">🏆 Classement</button>
       </div>
       <div class="sv-go-btns-row">
-        <button class="sv-go-btn replay" onclick="window.startSurvivalMode()">🔄 Rejouer</button>
-        <button class="sv-go-btn menu" onclick="window.goSplash()">← Menu</button>
+        <button class="sv-go-btn replay" onclick="window.startSurvivalMode()" data-i18n="sv_replay">🔄 Rejouer</button>
+        <button class="sv-go-btn menu" onclick="window.goSplash()" data-i18n="sv_menu">← Menu</button>
       </div>
     </div>
 
@@ -583,26 +575,29 @@
   <div style="display:flex;align-items:center;justify-content:space-between;
     padding:14px 20px 10px;border-bottom:1px solid var(--border,rgba(255,255,255,.08));">
     <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:15px;
-      letter-spacing:2px;color:var(--text,#fff);">⚙️ RÉGLAGES</span>
+      letter-spacing:2px;color:var(--text,#fff);" data-i18n="settings_title">⚙️ RÉGLAGES</span>
     <button onclick="closeSettings()" aria-label="Fermer les réglages"
       style="background:none;border:none;font-size:20px;color:var(--muted,#888);
       cursor:pointer;padding:4px 8px;line-height:1;">✕</button>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px 20px;">
-    <button class="settings-item-btn" onclick="showLeaderboard();closeSettings()" aria-label="Voir le classement">
-      <span style="font-size:22px;">🏆</span><span>Classement</span>
+    <button class="settings-item-btn" onclick="showLeaderboard();closeSettings()">
+      <span style="font-size:22px;">🏆</span><span data-i18n="settings_leaderboard">Classement</span>
     </button>
-    <button class="settings-item-btn" onclick="showShop();closeSettings()" aria-label="Ouvrir la boutique">
-      <span style="font-size:22px;">🛒</span><span>Boutique</span>
+    <button class="settings-item-btn" onclick="showShop();closeSettings()">
+      <span style="font-size:22px;">🛒</span><span data-i18n="settings_shop">Boutique</span>
     </button>
-    <button class="settings-item-btn" onclick="showTutorial();closeSettings()" aria-label="Voir le tutoriel">
-      <span style="font-size:22px;">❓</span><span>Tutoriel</span>
+    <button class="settings-item-btn" onclick="showTutorial();closeSettings()">
+      <span style="font-size:22px;">❓</span><span data-i18n="settings_tutorial">Tutoriel</span>
     </button>
-    <button class="settings-item-btn" onclick="showDonation();closeSettings()" aria-label="Soutenir le jeu">
-      <span style="font-size:22px;">❤️</span><span>Soutien</span>
+    <button class="settings-item-btn" onclick="showDonation();closeSettings()">
+      <span style="font-size:22px;">❤️</span><span data-i18n="settings_support">Soutien</span>
     </button>
-    <button class="settings-item-btn" onclick="window.showRecoveryCode?.();closeSettings()" aria-label="Code de récupération" style="grid-column:1/-1;">
-      <span style="font-size:22px;">🔑</span><span>Code de récupération</span>
+    <button class="settings-item-btn" onclick="window.showRecoveryCode?.();closeSettings()" style="grid-column:1/-1;">
+      <span style="font-size:22px;">🔑</span><span data-i18n="settings_recovery">Code de récupération</span>
+    </button>
+    <button class="settings-item-btn" id="settingsLangBtn" onclick="window.toggleLanguage?.();closeSettings()" style="grid-column:1/-1;">
+      <span style="font-size:22px;">🌍</span><span data-i18n="settings_language">Langue / Language</span>
     </button>
   </div>
 </div>
@@ -647,9 +642,9 @@ window.closeSettings = closeSettings;
 <nav class="global-bar" aria-label="Contrôles globaux">
   <button class="gb-btn" id="settingsBtn" onclick="openSettings()" aria-label="Ouvrir les réglages" style="font-size:18px;padding:8px 12px;">⚙️</button>
   <div class="gb-sep" aria-hidden="true"></div>
-  <button class="gb-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Basculer le thème sombre ou clair">🌙 Mode sombre</button>
+  <button class="gb-btn" id="themeBtn" onclick="toggleTheme()" data-i18n="theme_dark">🌙 Mode sombre</button>
   <div class="gb-sep" aria-hidden="true"></div>
-  <button class="gb-btn" id="muteBtn" onclick="toggleMute()" aria-label="Activer ou couper le son">🔊 Son</button>
+  <button class="gb-btn" id="muteBtn" onclick="toggleMute()" data-i18n="sound_on">🔊 Son</button>
 </nav>
 
 <audio id="menuMusic" src="Smooth_In_Heights_2026v2.mp3" preload="none" aria-hidden="true"></audio>
@@ -657,46 +652,81 @@ window.closeSettings = closeSettings;
 <script type="module" src="logicshot.js"></script>
 
 <script>
-/* ══ PWA INSTALL PROMPT ══ */
+/* ══ PWA INSTALL PROMPT — MODALE ══ */
 let _pwaPrompt = null;
+const _PWA_DISMISSED_KEY = 'ls_pwa_dismissed';
+
+function openPwaModal() {
+  const modal = document.getElementById('pwaModal');
+  if (!modal) return;
+  /* Détecter iOS */
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const sub = document.getElementById('pwaModalSub');
+  const androidDiv = document.getElementById('pwaModalAndroid');
+  const iosDiv = document.getElementById('pwaModalIOS');
+  const dismissBtn = document.getElementById('pwaDismissBtn');
+  const isEn = window.LS_LANG === 'en';
+
+  if (isIOS && isSafari) {
+    if (androidDiv) androidDiv.style.display = 'none';
+    if (iosDiv) iosDiv.style.display = '';
+    if (sub) sub.textContent = isEn ? "Install the free app" : "Installer l'app gratuitement";
+    if (iosDiv) iosDiv.querySelector('div').innerHTML = isEn
+      ? 'Tap <strong>⎙ Share</strong><br>then <strong>"Add to Home Screen"</strong>'
+      : "Appuie sur <strong>⎙ Partager</strong><br>puis <strong>« Sur l'écran d'accueil »</strong>";
+  } else {
+    if (androidDiv) androidDiv.style.display = '';
+    if (iosDiv) iosDiv.style.display = 'none';
+    if (sub) sub.textContent = isEn ? "Install the free app" : "Installer l'app gratuitement";
+  }
+  if (dismissBtn) dismissBtn.textContent = isEn ? "Later" : "Plus tard";
+  modal.style.display = 'flex';
+}
+
+window.closePwaModal = function() {
+  const modal = document.getElementById('pwaModal');
+  if (modal) modal.style.display = 'none';
+  localStorage.setItem(_PWA_DISMISSED_KEY, Date.now().toString());
+};
 
 /* Android / Chrome — capture l'événement beforeinstallprompt */
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _pwaPrompt = e;
-  const bar = document.getElementById('pwaInstallBar');
-  if (bar) bar.style.display = 'block';
+  /* Montrer la modale après 3s si pas déjà installé ni rejeté récemment */
+  const dismissed = parseInt(localStorage.getItem(_PWA_DISMISSED_KEY) || '0');
+  const daysSince = (Date.now() - dismissed) / (1000 * 86400);
+  if (daysSince > 7 || dismissed === 0) {
+    setTimeout(() => openPwaModal(), 3000);
+  }
 });
 
 window.triggerPwaInstall = function() {
   if (!_pwaPrompt) return;
   _pwaPrompt.prompt();
   _pwaPrompt.userChoice.then(r => {
-    if (r.outcome === 'accepted') {
-      document.getElementById('pwaInstallBar').style.display = 'none';
-    }
     _pwaPrompt = null;
+    window.closePwaModal();
   });
 };
 
-/* iOS Safari — détecter et afficher l'instruction manuelle */
+/* iOS Safari — modale manuelle après 4s */
 (function() {
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone === true;
   if (isIOS && isSafari && !isStandalone) {
-    const hint = document.getElementById('iosInstallHint');
-    if (hint) hint.style.display = 'block';
+    const dismissed = parseInt(localStorage.getItem(_PWA_DISMISSED_KEY) || '0');
+    const daysSince = (Date.now() - dismissed) / (1000 * 86400);
+    if (daysSince > 7 || dismissed === 0) {
+      setTimeout(() => openPwaModal(), 4000);
+    }
   }
 })();
 
-/* Masquer les bandeaux si déjà installé */
-window.addEventListener('appinstalled', () => {
-  const bar = document.getElementById('pwaInstallBar');
-  const hint = document.getElementById('iosInstallHint');
-  if (bar) bar.style.display = 'none';
-  if (hint) hint.style.display = 'none';
-});
+/* Masquer si déjà installé */
+window.addEventListener('appinstalled', () => window.closePwaModal());
 </script>
 
 <script>
@@ -718,6 +748,67 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('logicshot:ready', hideLoader, { once: true });
 });
 </script>
+
+
+<!-- ══ MODALE PWA INSTALL ══ -->
+<div id="pwaModal" style="
+  display:none;position:fixed;inset:0;z-index:8000;
+  background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);
+  align-items:flex-end;justify-content:center;padding:0 0 24px;">
+  <div style="
+    background:#ffffff;border-radius:24px;
+    padding:24px 20px 20px;max-width:380px;width:calc(100% - 32px);
+    box-shadow:0 8px 40px rgba(0,0,0,0.25);
+    position:relative;">
+    <!-- Close -->
+    <button onclick="closePwaModal()" style="
+      position:absolute;top:14px;right:14px;
+      background:rgba(0,0,0,0.07);border:none;border-radius:50%;
+      width:32px;height:32px;color:#555;font-size:16px;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      -webkit-tap-highlight-color:transparent;">✕</button>
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+      <img src="favicon.svg" style="width:52px;height:52px;border-radius:12px;flex-shrink:0;">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:17px;color:#111;">LogicShot</div>
+        <div style="font-size:12px;color:#666;margin-top:2px;" id="pwaModalSub">
+          Installer l'app gratuitement
+        </div>
+      </div>
+    </div>
+    <!-- Android button -->
+    <div id="pwaModalAndroid">
+      <button onclick="triggerPwaInstall()" style="
+        width:100%;padding:14px;border-radius:14px;border:none;
+        background:linear-gradient(135deg,#00b4ff,#0066cc);
+        color:#fff;font-family:'Syne',sans-serif;font-weight:800;font-size:15px;
+        letter-spacing:0.5px;cursor:pointer;
+        box-shadow:0 4px 16px rgba(0,180,255,0.35);
+        -webkit-tap-highlight-color:transparent;" id="pwaInstallBtn">
+        📲 <span data-i18n="install_app">INSTALLER L'APP</span>
+      </button>
+    </div>
+    <!-- iOS instructions -->
+    <div id="pwaModalIOS" style="display:none;">
+      <div style="
+        background:#f0f8ff;border:1.5px solid rgba(0,180,255,0.3);
+        border-radius:14px;padding:16px;font-size:14px;
+        color:#222;line-height:1.9;text-align:center;">
+        Appuie sur <strong style="color:#0088ee;">⎙ Partager</strong><br>
+        puis <strong style="color:#0088ee;">« Sur l'écran d'accueil »</strong>
+      </div>
+    </div>
+    <!-- Dismiss -->
+    <button onclick="closePwaModal()" style="
+      width:100%;margin-top:10px;padding:11px;border-radius:14px;
+      border:1.5px solid #e0e0e0;
+      background:#f5f5f5;color:#666;font-size:13px;font-weight:600;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;" id="pwaDismissBtn">
+      Plus tard
+    </button>
+  </div>
+</div>
 
 </body>
 </html>
