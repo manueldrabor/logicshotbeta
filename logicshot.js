@@ -37,7 +37,7 @@ window._activateSuper = activateSuper;
 window.toggleTheme = toggleTheme;
 window.toggleMute = toggleMute;
 window.startStoryMode = startStoryMode;
-window.startVsMachine = () => showScreen('screenDiffSelect');
+window.startVsMachine = () => { _markMenuInteracted(); showScreen('screenDiffSelect'); };
 window.selectAIDiff = selectAIDiff;
 window.proceedMatchmaking = proceedMatchmaking;
 window.showLeaderboard = showLeaderboard;
@@ -54,7 +54,7 @@ window.closeModal = closeModal;
 window.goSplash = goSplash;
 window.showTutorial = showTutorial;
 window.closeTutorial = closeTutorial;
-window.startOnlineMode = startOnlineMode;
+window.startOnlineMode = () => { _markMenuInteracted(); startOnlineMode(); };
 /* showRecoveryCode est défini en bas du fichier comme window.showRecoveryCode */
 window.startCreateRoom = startCreateRoom;
 window.startJoinRoom = startJoinRoom;
@@ -63,7 +63,7 @@ window.shareRoomCode = shareRoomCode;
 window.cancelOnline = cancelOnline;
 
 /* ══ SURVIE INFINIE ══ */
-window.startSurvivalMode = () => {
+window.startSurvivalMode = () => { _markMenuInteracted();
   /* Si pas de pseudo → créer un nom invité automatiquement */
   if (!Save.getSavedName()) {
     const guestName = window.LS_LANG === 'en' ? 'Guest' : 'Invité';
@@ -123,25 +123,35 @@ function getNarratives() {
 /* ══ NAVIGATE ══ */
 function goSplash() {
   clearAll();
-  _nameSetupCallback = null; /* éviter callback périmé après récupération ou annulation */
+  _nameSetupCallback = null;
   document.removeEventListener('visibilitychange', () => {});
   showScreen('screenSplash');
   resumeMenuMusic();
   _refreshPlayerBadge();
-  /* Garantir 2 entrées history au splash pour que le double-appui retour fonctionne */
   if (_historyReady) {
     history.pushState({ ls: true }, '');
     history.pushState({ ls: true }, '');
   }
+  /* Proposer PWA au retour au menu si onboarding vient de se terminer */
+  if (window._pendingPwa) {
+    window._pendingPwa = false;
+    setTimeout(() => window._showPwaModalIfNeeded?.(), 1200);
+  }
 }
 
 /* ══ BADGE NOM JOUEUR SUR SPLASH ══ */
+function _markMenuInteracted() {
+  localStorage.setItem('ls_menu_interacted', '1');
+  _refreshPlayerBadge();
+}
+
 function _refreshPlayerBadge() {
   const name = Save.getSavedName();
   const badge = document.getElementById('splashPlayerBadge');
   const nameEl = document.getElementById('splashPlayerName');
+  const hasInteracted = !!localStorage.getItem('ls_menu_interacted');
   if (badge && nameEl) {
-    if (name) {
+    if (name && hasInteracted) {
       nameEl.textContent = name;
       badge.style.display = 'block';
     } else {
@@ -221,8 +231,14 @@ window.confirmNameSetup = async function() {
     State.oathNames = [raw];
   }
 
-  if (btn) { btn.disabled = false; btn.textContent = '🚀 C\'EST PARTI !'; }
+  if (btn) { btn.disabled = false; btn.textContent = t('name_cta'); }
   _refreshPlayerBadge();
+
+  /* Première fois qu'un nom est défini → proposer PWA après retour menu */
+  if (!localStorage.getItem('ls_pwa_onboarded')) {
+    localStorage.setItem('ls_pwa_onboarded', '1');
+    window._pendingPwa = true;
+  }
 
   const cb = _nameSetupCallback;
   _nameSetupCallback = null;
@@ -232,6 +248,7 @@ window.confirmNameSetup = async function() {
 
 /* ══ SPLASH ══ */
 function startStoryMode() {
+  _markMenuInteracted();
   State.gameMode = 'story';
   const saved = Save.getSavedName();
   if (!saved) {
@@ -878,12 +895,12 @@ function _doFirstLaunchTutorial() {
   window.closeTutorial = function() {
     origClose && origClose();
     window.closeTutorial = origClose;
-    /* Après le tuto : proposer l'installation PWA si disponible */
-    if (window._pwaPrompt || /iphone|ipad|ipod/i.test(navigator.userAgent)) {
-      setTimeout(() => window.openPwaModal?.(), 1000);
-    }
+    /* Après le tuto : si déjà un nom → proposer PWA. Sinon → nom d'abord, puis PWA */
     if (!Save.getSavedName()) {
       setTimeout(() => window.showNameSetup(false), 300);
+      /* La PWA sera proposée après la validation du nom (voir confirmNameSetup) */
+    } else {
+      setTimeout(() => window._showPwaModalIfNeeded?.(), 1000);
     }
   };
 }
