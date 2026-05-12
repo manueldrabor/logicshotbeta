@@ -706,40 +706,43 @@ window.closePwaModal = function() {
   localStorage.setItem(_PWA_DISMISSED_KEY, Date.now().toString());
 };
 
-/* Android / Chrome — capture l'événement beforeinstallprompt */
+/* Android / Chrome — capturer silencieusement, prompt() déclenché manuellement */
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _pwaPrompt = e;
-  /* Montrer la modale après 3s si pas déjà installé ni rejeté récemment */
-  const dismissed = parseInt(localStorage.getItem(_PWA_DISMISSED_KEY) || '0');
-  const daysSince = (Date.now() - dismissed) / (1000 * 86400);
-  if (daysSince > 7 || dismissed === 0) {
-    setTimeout(() => openPwaModal(), 3000);
-  }
+  /* On n'ouvre PAS la modale ici — elle s'affiche après l'onboarding */
 });
 
 window.triggerPwaInstall = function() {
-  if (!_pwaPrompt) return;
+  if (!_pwaPrompt) {
+    /* Fallback : ouvrir la modale iOS si Android prompt non dispo */
+    openPwaModal();
+    return;
+  }
   _pwaPrompt.prompt();
   _pwaPrompt.userChoice.then(r => {
     _pwaPrompt = null;
     window.closePwaModal();
-  });
+  }).catch(() => {});
 };
 
-/* iOS Safari — modale manuelle après 4s */
-(function() {
+/* Appelé par logicshot.js après onboarding complet */
+window._showPwaModalIfNeeded = function() {
+  const isStandalone = window.navigator.standalone === true
+    || window.matchMedia('(display-mode: standalone)').matches;
+  if (isStandalone) return; /* déjà installée */
+
+  const dismissed = parseInt(localStorage.getItem(_PWA_DISMISSED_KEY) || '0');
+  const daysSince = (Date.now() - dismissed) / (1000 * 86400);
+  if (dismissed !== 0 && daysSince < 7) return; /* rejeté récemment */
+
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-  const isStandalone = window.navigator.standalone === true;
-  if (isIOS && isSafari && !isStandalone) {
-    const dismissed = parseInt(localStorage.getItem(_PWA_DISMISSED_KEY) || '0');
-    const daysSince = (Date.now() - dismissed) / (1000 * 86400);
-    if (daysSince > 7 || dismissed === 0) {
-      setTimeout(() => openPwaModal(), 4000);
-    }
-  }
-})();
+  const canInstall = _pwaPrompt || (isIOS && isSafari);
+  if (!canInstall) return;
+
+  setTimeout(() => openPwaModal(), 800);
+};
 
 /* Masquer si déjà installé */
 window.addEventListener('appinstalled', () => window.closePwaModal());
