@@ -140,8 +140,11 @@ function goSplash() {
 }
 
 /* ══ BADGE NOM JOUEUR SUR SPLASH ══ */
+/* Variable de SESSION (pas localStorage) — se remet à false à chaque chargement */
+let _menuInteractedThisSession = false;
+
 function _markMenuInteracted() {
-  localStorage.setItem('ls_menu_interacted', '1');
+  _menuInteractedThisSession = true;
   _refreshPlayerBadge();
 }
 
@@ -149,9 +152,8 @@ function _refreshPlayerBadge() {
   const name = Save.getSavedName();
   const badge = document.getElementById('splashPlayerBadge');
   const nameEl = document.getElementById('splashPlayerName');
-  const hasInteracted = !!localStorage.getItem('ls_menu_interacted');
   if (badge && nameEl) {
-    if (name && hasInteracted) {
+    if (name && _menuInteractedThisSession) {
       nameEl.textContent = name;
       badge.style.display = 'block';
     } else {
